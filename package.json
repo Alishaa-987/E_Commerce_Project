@@ -1,0 +1,29 @@
+{
+  "name": "multivendor",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/Alishaa-987/E_Commerce_Project#readme",
+  "bugs": {
+    "url": "https://github.com/Alishaa-987/E_Commerce_Project/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alishaa-987/E_Commerce_Project.git"
+  },
+  "license": "ISC",
+  "author": "Alisha Fatima",
+  "type": "commonjs",
+  "main": "backend/server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.3.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.2.2",
+    "nodemailer": "^8.0.1",
+    "nodemon": "^3.1.14"
+  }
+}
