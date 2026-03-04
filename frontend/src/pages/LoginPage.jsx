@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
+
 const LoginPage = () => {
   return (
     <div className="min-h-screen bg-[#0b0b0d] text-white font-Poppins">

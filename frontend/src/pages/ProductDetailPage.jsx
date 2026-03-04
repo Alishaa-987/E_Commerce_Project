@@ -1,0 +1,264 @@
+import React, { useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { AiFillStar, AiOutlineStar } from "react-icons/ai";
+import { FiShoppingCart, FiHeart, FiPackage, FiTruck, FiShield } from "react-icons/fi";
+import Navbar from "../components/layout/Navbar";
+import Footer from "../components/layout/Footer";
+import ProductCard from "../components/ProductCard";
+import { products, shops } from "../data/mockData";
+import { useCart } from "../context/CartContext";
+
+const mockReviews = [
+  { id: 1, name: "Amara K.", avatar: "https://i.pravatar.cc/40?u=amara", rating: 5, date: "2 days ago", text: "Absolutely stunning quality. Exceeded my expectations — will definitely order again." },
+  { id: 2, name: "James R.", avatar: "https://i.pravatar.cc/40?u=james", rating: 4, date: "1 week ago", text: "Great product, fast shipping. The packaging was premium and the item arrived in perfect condition." },
+  { id: 3, name: "Sofia L.", avatar: "https://i.pravatar.cc/40?u=sofia", rating: 5, date: "2 weeks ago", text: "Worth every penny. The craftsmanship is beautiful and it looks even better in person." },
+];
+
+const Stars = ({ rating }) =>
+  Array.from({ length: 5 }).map((_, i) =>
+    i < Math.floor(rating) ? (
+      <AiFillStar key={i} size={14} className="text-emerald-300" />
+    ) : (
+      <AiOutlineStar key={i} size={14} className="text-white/20" />
+    )
+  );
+
+const ProductDetailPage = () => {
+  const { id } = useParams();
+  const product = products.find((p) => p.id === Number(id));
+  const { addToCart } = useCart();
+  const [qty, setQty] = useState(1);
+  const [added, setAdded] = useState(false);
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-[#0b0b0d] text-white font-Poppins flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-white/40 text-xl font-Playfair mb-4">Product not found</p>
+          <Link to="/products" className="text-emerald-300 text-sm hover:text-white transition">
+            ← Back to products
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const shop = shops.find((s) => s.id === product.shopId);
+  const related = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  const discount = product.originalPrice
+    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+    : null;
+
+  const handleAddToCart = () => {
+    for (let i = 0; i < qty; i++) addToCart(product);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0b0b0d] text-white font-Poppins">
+      <Navbar />
+
+      <div className="mx-auto max-w-7xl px-6 pt-24 pb-16">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-xs text-white/30 mb-8">
+          <Link to="/" className="hover:text-white transition">Home</Link>
+          <span>/</span>
+          <Link to="/products" className="hover:text-white transition">Products</Link>
+          <span>/</span>
+          <Link
+            to={`/products?category=${encodeURIComponent(product.category)}`}
+            className="hover:text-white transition"
+          >
+            {product.category}
+          </Link>
+          <span>/</span>
+          <span className="text-white/60 truncate">{product.name}</span>
+        </div>
+
+        {/* Main layout */}
+        <div className="grid gap-12 lg:grid-cols-2">
+          {/* Image */}
+          <div>
+            <div className="aspect-square w-full overflow-hidden rounded-3xl border border-white/10 bg-[#111114]">
+              <img
+                src={product.image}
+                alt={product.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            {/* Thumbnails (same image — mock) */}
+            <div className="mt-4 flex gap-3">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className={`h-16 w-16 rounded-xl overflow-hidden border cursor-pointer transition ${
+                    i === 0 ? "border-emerald-300/50" : "border-white/10 opacity-50"
+                  }`}
+                >
+                  <img
+                    src={product.image}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Details */}
+          <div className="space-y-6">
+            {/* Shop + category */}
+            <div className="flex items-center gap-3">
+              {shop && (
+                <Link to={`/shop/${shop.handle}`} className="flex items-center gap-2 text-xs text-white/50 hover:text-white transition">
+                  <img src={shop.avatar} alt={shop.name} className="h-5 w-5 rounded-full" />
+                  {shop.name}
+                </Link>
+              )}
+              <span className="text-white/20">·</span>
+              <span className="text-xs text-white/30">{product.category}</span>
+            </div>
+
+            <h1 className="text-3xl sm:text-4xl font-Playfair font-semibold text-white leading-tight">
+              {product.name}
+            </h1>
+
+            {/* Rating */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                <Stars rating={product.rating} />
+              </div>
+              <span className="text-sm text-white/70">{product.rating}</span>
+              <span className="text-sm text-white/30">({product.reviews} reviews)</span>
+              <span className="text-sm text-white/30">·</span>
+              <span className="text-sm text-white/30">{product.sold} sold</span>
+            </div>
+
+            {/* Price */}
+            <div className="flex items-center gap-4">
+              <span className="text-4xl font-semibold text-white">${product.price}</span>
+              {product.originalPrice && (
+                <>
+                  <span className="text-xl text-white/30 line-through">${product.originalPrice}</span>
+                  <span className="rounded-xl bg-emerald-300 px-3 py-1 text-sm font-bold text-[#0b0b0d]">
+                    -{discount}%
+                  </span>
+                </>
+              )}
+            </div>
+
+            <p className="text-sm text-white/60 leading-relaxed">{product.description}</p>
+
+            {/* Tags */}
+            <div className="flex flex-wrap gap-2">
+              {product.tags.map((tag) => (
+                <span key={tag} className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/50">
+                  #{tag}
+                </span>
+              ))}
+            </div>
+
+            {/* Qty + Add to cart */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-0 rounded-xl border border-white/10 overflow-hidden">
+                <button
+                  onClick={() => setQty((q) => Math.max(1, q - 1))}
+                  className="flex h-11 w-11 items-center justify-center text-white/60 hover:text-white hover:bg-white/5 transition text-lg"
+                >
+                  −
+                </button>
+                <span className="w-10 text-center text-sm font-medium text-white">{qty}</span>
+                <button
+                  onClick={() => setQty((q) => q + 1)}
+                  className="flex h-11 w-11 items-center justify-center text-white/60 hover:text-white hover:bg-white/5 transition text-lg"
+                >
+                  +
+                </button>
+              </div>
+
+              <button
+                onClick={handleAddToCart}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition ${
+                  added
+                    ? "bg-emerald-300/20 border border-emerald-300/30 text-emerald-300"
+                    : "bg-white text-[#0b0b0d] hover:-translate-y-0.5"
+                }`}
+              >
+                <FiShoppingCart size={15} />
+                {added ? "Added to cart ✓" : "Add to Cart"}
+              </button>
+
+              <button className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/50 hover:text-white hover:border-white/30 transition">
+                <FiHeart size={16} />
+              </button>
+            </div>
+
+            {/* Trust badges */}
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { Icon: FiTruck, label: "Free shipping", sub: "Orders over $80" },
+                { Icon: FiPackage, label: "Easy returns", sub: "30-day policy" },
+                { Icon: FiShield, label: "Secure checkout", sub: "Encrypted payment" },
+              ].map(({ Icon, label, sub }) => (
+                <div key={label} className="flex flex-col items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 p-3 text-center">
+                  <Icon size={16} className="text-emerald-300" />
+                  <p className="text-[10px] font-medium text-white/70">{label}</p>
+                  <p className="text-[9px] text-white/30">{sub}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Reviews */}
+        <div className="mt-16">
+          <div className="mb-6">
+            <p className="text-[10px] uppercase tracking-widest text-white/30 mb-2">
+              Customer feedback
+            </p>
+            <h2 className="text-2xl font-Playfair font-semibold text-white">Reviews</h2>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {mockReviews.map((r) => (
+              <div key={r.id} className="rounded-2xl border border-white/10 bg-[#111114] p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <img src={r.avatar} alt={r.name} className="h-9 w-9 rounded-full" />
+                  <div>
+                    <p className="text-sm font-medium text-white">{r.name}</p>
+                    <p className="text-xs text-white/30">{r.date}</p>
+                  </div>
+                  <div className="ml-auto flex items-center gap-0.5">
+                    <Stars rating={r.rating} />
+                  </div>
+                </div>
+                <p className="text-sm text-white/60 leading-relaxed">{r.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Related Products */}
+        {related.length > 0 && (
+          <div className="mt-16">
+            <div className="mb-6">
+              <p className="text-[10px] uppercase tracking-widest text-white/30 mb-2">
+                You might also like
+              </p>
+              <h2 className="text-2xl font-Playfair font-semibold text-white">Related Products</h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {related.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Footer />
+    </div>
+  );
+};
+
+export default ProductDetailPage;
