@@ -1,8 +1,39 @@
-import React from "react";
+import axios from "axios";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
-
+import { server } from "../server";
+import { useNavigate } from "react-router-dom";
 
 const LoginPage = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [visible, setVisible] = useState(false);
+  const [message, setMessage] = useState("");
+  const navigate = useNavigate();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await axios
+      .post(
+        `${server}/user/login-user`,
+        {
+          email,
+          password,
+        },
+        {
+          withCredentials: true,
+        },
+      )
+      .then((res) => {
+        setMessage("Login successful!");
+        console.log("login success:", res.data);
+        navigate("/");
+      })
+
+      .catch((err) => {
+        console.log(err)
+        setMessage(err.response?.data?.message || "Login failed");
+      });
+  };
   return (
     <div className="min-h-screen bg-[#0b0b0d] text-white font-Poppins">
       <div className="relative isolate overflow-hidden">
@@ -23,12 +54,14 @@ const LoginPage = () => {
               </p>
             </div>
 
-            <form className="mt-6 space-y-4">
+            <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
               <label className="space-y-1 text-sm text-white/70">
                 Email
                 <input
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/10"
                   type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
               </label>
 
@@ -37,6 +70,8 @@ const LoginPage = () => {
                 <input
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/10"
                   type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
               </label>
 
@@ -57,13 +92,19 @@ const LoginPage = () => {
               </div>
 
               <button
-                type="button"
+                type="submit"
+
                 className="group flex w-full items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[#0b0b0d] transition hover:-translate-y-0.5"
               >
                 Sign in
                 <span className="inline-flex h-2 w-2 rounded-full bg-[#0b0b0d] group-hover:animate-pulse" />
               </button>
             </form>
+            {message && (
+              <p className="mt-4 text-center text-sm text-red-400">
+                {message}
+              </p>
+            )}
 
             <p className="mt-6 text-center text-xs text-white/60">
               New here?{" "}
