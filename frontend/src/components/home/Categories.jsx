@@ -52,7 +52,7 @@ const Categories = () => {
             to="/products"
             className="text-xs text-white/50 hover:text-white transition"
           >
-            View all →
+            View all ->
           </Link>
         </div>
 

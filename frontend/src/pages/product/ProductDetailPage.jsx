@@ -1,15 +1,22 @@
 import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { AiFillStar, AiOutlineStar } from "react-icons/ai";
-import { FiShoppingCart, FiHeart, FiPackage, FiTruck, FiShield } from "react-icons/fi";
-import Navbar from "../components/layout/Navbar";
-import Footer from "../components/layout/Footer";
-import ProductCard from "../components/ProductCard";
-import { products, shops } from "../data/mockData";
-import { useCart } from "../context/CartContext";
+import {
+  FiShoppingCart,
+  FiHeart,
+  FiPackage,
+  FiTruck,
+  FiShield,
+  FiMessageSquare,
+} from "react-icons/fi";
+import Navbar from "../../components/layout/Navbar";
+import Footer from "../../components/layout/Footer";
+import ProductCard from "../../components/cards/ProductCard";
+import { products, shops } from "../../data/mockData";
+import { useCart } from "../../context/CartContext";
 
 const mockReviews = [
-  { id: 1, name: "Amara K.", avatar: "https://i.pravatar.cc/40?u=amara", rating: 5, date: "2 days ago", text: "Absolutely stunning quality. Exceeded my expectations — will definitely order again." },
+  { id: 1, name: "Amara K.", avatar: "https://i.pravatar.cc/40?u=amara", rating: 5, date: "2 days ago", text: "Absolutely stunning quality. Exceeded my expectations - will definitely order again." },
   { id: 2, name: "James R.", avatar: "https://i.pravatar.cc/40?u=james", rating: 4, date: "1 week ago", text: "Great product, fast shipping. The packaging was premium and the item arrived in perfect condition." },
   { id: 3, name: "Sofia L.", avatar: "https://i.pravatar.cc/40?u=sofia", rating: 5, date: "2 weeks ago", text: "Worth every penny. The craftsmanship is beautiful and it looks even better in person." },
 ];
@@ -36,7 +43,7 @@ const ProductDetailPage = () => {
         <div className="text-center">
           <p className="text-white/40 text-xl font-Playfair mb-4">Product not found</p>
           <Link to="/products" className="text-emerald-300 text-sm hover:text-white transition">
-            ← Back to products
+            &larr; Back to products
           </Link>
         </div>
       </div>
@@ -53,6 +60,11 @@ const ProductDetailPage = () => {
     for (let i = 0; i < qty; i++) addToCart(product);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
+  };
+
+  const handleMessageSeller = () => {
+    const sellerName = shop?.name || product.shopName || "seller";
+    alert(`Starting a message thread with ${sellerName}.`);
   };
 
   return (
@@ -87,7 +99,7 @@ const ProductDetailPage = () => {
                 className="w-full h-full object-cover"
               />
             </div>
-            {/* Thumbnails (same image — mock) */}
+            {/* Thumbnails (same image - mock) */}
             <div className="mt-4 flex gap-3">
               {[0, 1, 2].map((i) => (
                 <div
@@ -116,7 +128,7 @@ const ProductDetailPage = () => {
                   {shop.name}
                 </Link>
               )}
-              <span className="text-white/20">·</span>
+              <span className="text-white/20">|</span>
               <span className="text-xs text-white/30">{product.category}</span>
             </div>
 
@@ -131,7 +143,7 @@ const ProductDetailPage = () => {
               </div>
               <span className="text-sm text-white/70">{product.rating}</span>
               <span className="text-sm text-white/30">({product.reviews} reviews)</span>
-              <span className="text-sm text-white/30">·</span>
+              <span className="text-sm text-white/30">|</span>
               <span className="text-sm text-white/30">{product.sold} sold</span>
             </div>
 
@@ -166,7 +178,7 @@ const ProductDetailPage = () => {
                   onClick={() => setQty((q) => Math.max(1, q - 1))}
                   className="flex h-11 w-11 items-center justify-center text-white/60 hover:text-white hover:bg-white/5 transition text-lg"
                 >
-                  −
+                  -
                 </button>
                 <span className="w-10 text-center text-sm font-medium text-white">{qty}</span>
                 <button
@@ -186,7 +198,7 @@ const ProductDetailPage = () => {
                 }`}
               >
                 <FiShoppingCart size={15} />
-                {added ? "Added to cart ✓" : "Add to Cart"}
+                {added ? "Added to cart" : "Add to Cart"}
               </button>
 
               <button className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/50 hover:text-white hover:border-white/30 transition">
@@ -207,6 +219,111 @@ const ProductDetailPage = () => {
                   <p className="text-[9px] text-white/30">{sub}</p>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Product details + Seller info */}
+        <div className="mt-12 grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 rounded-3xl border border-white/10 bg-[#111114] p-6 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-white/30 mb-2">
+                  Product details
+                </p>
+                <h2 className="text-xl font-Playfair font-semibold text-white">Full description</h2>
+              </div>
+              <span className="text-xs text-white/40">ID #{product.id}</span>
+            </div>
+
+            <p className="text-sm text-white/70 leading-relaxed">
+              {product.description}
+            </p>
+            <p className="text-sm text-white/50 leading-relaxed">
+              Each item is quality-checked, ships within 2-3 business days, and is covered by a 30-day return window.
+            </p>
+
+            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+              {[
+                { label: "Availability", value: product.inStock ? "In stock - ready to ship" : "Currently unavailable" },
+                { label: "Orders", value: `${product.sold}+ sold` },
+                { label: "Category", value: product.category },
+                { label: "Shipping", value: "Dispatch in 2-3 business days" },
+                { label: "Returns", value: "30-day easy returns" },
+                { label: "Protection", value: "Secure checkout + buyer protection" },
+              ].map(({ label, value }) => (
+                <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-wide text-white/40">{label}</p>
+                  <p className="text-sm text-white font-semibold">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            {product.tags?.length > 0 && (
+              <div className="pt-2">
+                <p className="text-[11px] uppercase tracking-wide text-white/40 mb-2">Highlights</p>
+                <div className="flex flex-wrap gap-2">
+                  {product.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/60"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-[#111114] p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <img
+                src={shop?.avatar || product.image}
+                alt={shop?.name || product.shopName}
+                className="h-12 w-12 rounded-full object-cover"
+              />
+              <div>
+                <p className="text-sm font-semibold text-white">{shop?.name || product.shopName}</p>
+                <p className="text-xs text-white/40">
+                  {shop ? `${shop.products} products | ${shop.followers} followers` : "Trusted marketplace seller"}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: "Rating", value: `${shop?.rating || product.rating} / 5` },
+                { label: "Orders", value: `${product.sold}+` },
+                { label: "Category", value: product.category },
+              ].map(({ label, value }) => (
+                <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-white/40">{label}</p>
+                  <p className="text-sm text-white font-semibold">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            {shop?.description && (
+              <p className="text-sm text-white/60 leading-relaxed">{shop.description}</p>
+            )}
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={handleMessageSeller}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-300/40 bg-emerald-300/10 px-4 py-3 text-sm font-semibold text-emerald-200 hover:bg-emerald-300/20 transition"
+              >
+                <FiMessageSquare size={15} />
+                Send Message
+              </button>
+
+              <Link
+                to={shop ? `/shop/${shop.handle}` : "/products"}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white text-[#0b0b0d] px-4 py-3 text-sm font-semibold hover:-translate-y-0.5 transition"
+              >
+                Visit Shop
+              </Link>
             </div>
           </div>
         </div>

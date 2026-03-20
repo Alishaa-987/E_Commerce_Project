@@ -4,7 +4,8 @@ const userReducer = createSlice({
     name: "user",
     initialState: {
         user: {},
-        isLoading: false,
+        isLoading: true,
+        isAuthenticated: false,
         error: null,
     },
     reducers: {
@@ -22,11 +23,20 @@ const userReducer = createSlice({
             state.isLoading = false;
             state.error = action.payload;
         },
+        LogoutSuccess: (state) => {
+            state.isAuthenticated = false;
+            state.isLoading = false;
+            state.user = {};
+        },
+        LogoutFail: (state, action) => {
+            state.isLoading = false;
+            state.error = action.payload;
+        },
         clearErrors: (state) =>{    
             state.error = null;
         }
     }
 });
 
-export const { LoadingUserRequest, LoadingUserSuccess, LoadingUserFail, clearErrors } = userReducer.actions;
+export const { LoadingUserRequest, LoadingUserSuccess, LoadingUserFail, LogoutSuccess, LogoutFail, clearErrors } = userReducer.actions;
 export default userReducer.reducer;

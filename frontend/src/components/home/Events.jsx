@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { FiArrowRight } from "react-icons/fi";
 import { AiFillStar } from "react-icons/ai";
-import CountdownTimer from "../CountdownTimer";
+import CountdownTimer from "../common/CountdownTimer";
 import { flashSaleProduct, flashSaleEndDate } from "../../data/mockData";
 import { useCart } from "../../context/CartContext";
 
@@ -27,7 +27,7 @@ const Events = () => {
               <div className="flex items-center gap-3">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
                 <span className="text-[10px] uppercase tracking-widest text-emerald-300">
-                  Flash sale · Live now
+                  Flash sale | Live now
                 </span>
               </div>
 
@@ -38,7 +38,7 @@ const Events = () => {
                   on premium picks
                 </h2>
                 <p className="mt-3 text-sm text-white/50">
-                  Limited stock. Don't miss your chance to grab these at their lowest price — ever.
+                  Limited stock. Don't miss your chance to grab these at their lowest price - ever.
                 </p>
               </div>
 
@@ -54,7 +54,7 @@ const Events = () => {
                   onClick={() => addToCart(product)}
                   className="flex items-center gap-2 rounded-xl bg-emerald-300 px-6 py-3 text-sm font-semibold text-[#0b0b0d] transition hover:-translate-y-0.5"
                 >
-                  Add to Cart · ${product.price}
+                  Add to Cart | ${product.price}
                 </button>
                 <Link
                   to="/products"
@@ -101,7 +101,7 @@ const Events = () => {
                     </div>
                     <div className="flex items-center gap-1 text-xs text-white/50">
                       <AiFillStar size={12} className="text-emerald-300" />
-                      {product.rating} · {product.reviews} reviews
+                      {product.rating} | {product.reviews} reviews
                     </div>
                   </div>
                 </div>

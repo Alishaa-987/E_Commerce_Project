@@ -68,9 +68,13 @@ router.post("/create-user", upload.single("file"), async (req, res, next) => {
             });
 
         } catch (error) {
-            console.error("❌ [EMAIL] Failed to send activation email");
+            console.error("[EMAIL] Failed to send activation email");
             console.error("Error:", error.message);
-            return next(new ErrorHandler(`Failed to send activation email: ${error.message}`, 500));
+            let friendly = "Activation email could not be sent. Please check email settings and try again.";
+            if (error?.code === "EAUTH") {
+                friendly = "Activation email failed: SMTP credentials were rejected. If using Gmail, turn on 2-Step Verification and use an App Password for SMTP_PASSWORD.";
+            }
+            return next(new ErrorHandler(friendly, 500));
         }
 
     } catch (error) {
@@ -155,8 +159,20 @@ router.post("/login-user", catchAsyncError(async (req, res, next) => {
     }
 }));
 
+// logout user (clears auth cookie)
+router.get("/logout", (req, res) => {
+    res.cookie("token", null, {
+        expires: new Date(Date.now()),
+        httpOnly: true,
+    });
+    res.status(200).json({
+        success: true,
+        message: "Logged out successfully",
+    });
+});
+
 // load user
-router.get("/getuser",
+router.get("/getUser",
      isAuthenticated, 
      catchAsyncError(async (req, res, next) => {
     try{

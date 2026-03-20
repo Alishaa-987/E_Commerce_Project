@@ -2,10 +2,13 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { AiFillStar } from "react-icons/ai";
 import { FiShoppingCart, FiHeart } from "react-icons/fi";
-import { useCart } from "../context/CartContext";
+import { useCart } from "../../context/CartContext";
+import { useWishlist } from "../../context/WishlistContext";
 
 const ProductCard = ({ product }) => {
   const { addToCart } = useCart();
+  const { toggleWishlist, isWishlisted } = useWishlist();
+  const liked = isWishlisted(product.id);
   const discount = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : null;
@@ -32,7 +35,15 @@ const ProductCard = ({ product }) => {
       </div>
 
       {/* Wishlist */}
-      <button className="absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-[#0b0b0d]/60 text-white/40 backdrop-blur hover:text-white transition opacity-0 group-hover:opacity-100">
+      <button
+        onClick={() => toggleWishlist(product)}
+        className={`absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur transition opacity-0 group-hover:opacity-100 ${
+          liked
+            ? "border-emerald-300 bg-emerald-300/20 text-emerald-200"
+            : "border-white/10 bg-[#0b0b0d]/60 text-white/40 hover:text-white"
+        }`}
+        aria-label="Toggle wishlist"
+      >
         <FiHeart size={14} />
       </button>
 

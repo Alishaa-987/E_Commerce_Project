@@ -1,15 +1,15 @@
 import React, { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FiSearch, FiFilter, FiX } from "react-icons/fi";
-import Navbar from "../components/layout/Navbar";
-import Footer from "../components/layout/Footer";
-import ProductCard from "../components/ProductCard";
-import { products, categories } from "../data/mockData";
+import Navbar from "../../components/layout/Navbar";
+import Footer from "../../components/layout/Footer";
+import ProductCard from "../../components/cards/ProductCard";
+import { products, categories } from "../../data/mockData";
 
 const sortOptions = [
   { label: "Newest", value: "new" },
-  { label: "Price: Low → High", value: "price-asc" },
-  { label: "Price: High → Low", value: "price-desc" },
+  { label: "Price: Low -> High", value: "price-asc" },
+  { label: "Price: High -> Low", value: "price-desc" },
   { label: "Best Rated", value: "rating" },
   { label: "Best Seller", value: "bestseller" },
 ];
@@ -155,7 +155,7 @@ const ProductsPage = () => {
         {/* Page header */}
         <div className="mb-8">
           <p className="text-[10px] uppercase tracking-widest text-white/30 mb-2">
-            {activeCategory || "All"} · {filteredProducts.length} results
+            {activeCategory || "All"} | {filteredProducts.length} results
           </p>
           <h1 className="text-3xl font-Playfair font-semibold text-white">
             {searchQuery
@@ -192,7 +192,7 @@ const ProductsPage = () => {
         </div>
 
         <div className="flex gap-8">
-          {/* Sidebar — desktop */}
+          {/* Sidebar - desktop */}
           <aside className="hidden lg:block w-52 shrink-0">
             <div className="sticky top-24">
               <FilterPanel />

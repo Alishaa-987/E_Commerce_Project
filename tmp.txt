@@ -1,0 +1,16 @@
+try {
+        const { name, email, password } = req.body;
+
+        console.log("📋 Signup data received:", { name, email, passwordLength: password?.length });
+
+        // Validate required fields
+        if (!name || !email || !password) {
+            return next(new ErrorHandler("Please provide name, email and password", 400));
+        }
+
+        // Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            if (req.file) {
+                const filename = req.file.filename;
+                const filePath = `uploads/${file

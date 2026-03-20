@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { FiArrowRight } from "react-icons/fi";
-import ProductCard from "../ProductCard";
+import ProductCard from "../cards/ProductCard";
 import { products } from "../../data/mockData";
 
 const BestSelling = () => {

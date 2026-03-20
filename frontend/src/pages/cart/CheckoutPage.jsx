@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { FiCheck, FiArrowLeft, FiLock } from "react-icons/fi";
-import Navbar from "../components/layout/Navbar";
-import Footer from "../components/layout/Footer";
-import { useCart } from "../context/CartContext";
+import Navbar from "../../components/layout/Navbar";
+import Footer from "../../components/layout/Footer";
+import { useCart } from "../../context/CartContext";
 
 const inputClass =
   "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/10 transition";
@@ -23,7 +23,11 @@ const CheckoutPage = () => {
     cardNumber: "",
     expiry: "",
     cvv: "",
+    cardName: "",
   });
+  const [paymentMethod, setPaymentMethod] = useState("card"); // card | paypal | cod
+  const [error, setError] = useState("");
+  const [coupon, setCoupon] = useState("");
 
   const shipping = cartTotal > 80 ? 0 : 9.99;
   const total = cartTotal + shipping;
@@ -32,6 +36,13 @@ const CheckoutPage = () => {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
   const handleOrder = () => {
+    if (paymentMethod === "card") {
+      if (!form.cardName || !form.cardNumber || !form.expiry || !form.cvv) {
+        setError("Please fill card name, number, expiry, and CVV.");
+        return;
+      }
+    }
+    setError("");
     clearCart();
     setStep(3);
   };
@@ -59,7 +70,7 @@ const CheckoutPage = () => {
               </div>
               <div className="flex justify-between text-sm text-white/60">
                 <span>Estimated delivery</span>
-                <span>3–5 business days</span>
+                <span>3-5 business days</span>
               </div>
             </div>
             <div className="flex flex-col gap-3">
@@ -179,47 +190,131 @@ const CheckoutPage = () => {
                   onClick={() => setStep(2)}
                   className="w-full rounded-xl bg-white py-3 text-sm font-semibold text-[#0b0b0d] transition hover:-translate-y-0.5 mt-2"
                 >
-                  Continue to Payment →
+                  Continue to Payment ->
                 </button>
               </div>
             )}
 
             {step === 2 && (
-              <div className="rounded-2xl border border-white/10 bg-[#111114] p-6 sm:p-8 space-y-5 animate-fade-up">
-                <p className="text-[10px] uppercase tracking-widest text-white/30 mb-2">
-                  Payment Details
-                </p>
-                <div className="space-y-1.5">
-                  <label className="text-xs text-white/50">Card Number</label>
-                  <input name="cardNumber" value={form.cardNumber} onChange={handleChange} placeholder="1234 5678 9012 3456" maxLength={19} className={inputClass} />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-white/50">Expiry Date</label>
-                    <input name="expiry" value={form.expiry} onChange={handleChange} placeholder="MM / YY" className={inputClass} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-white/50">CVV</label>
-                    <input name="cvv" value={form.cvv} onChange={handleChange} placeholder="•••" maxLength={4} className={inputClass} />
+              <div className="rounded-2xl border border-white/10 bg-[#111114] p-6 sm:p-8 space-y-6 animate-fade-up">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] uppercase tracking-widest text-white/30">
+                    Payment
+                  </p>
+                  <div className="flex items-center gap-2 text-white/30 text-xs">
+                    <FiLock size={12} className="text-emerald-300" />
+                    Secure checkout | TLS 1.2
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-white/30">
-                  <FiLock size={12} className="text-emerald-300" />
-                  Your payment info is encrypted and never stored.
+
+                <div className="space-y-4">
+                  {[
+                    { key: "card", label: "Pay with Debit/credit card" },
+                    { key: "paypal", label: "Pay with Paypal" },
+                    { key: "cod", label: "Cash on Delivery" },
+                  ].map((m) => (
+                    <div
+                      key={m.key}
+                      className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3"
+                    >
+                      <input
+                        type="radio"
+                        name="payment"
+                        value={m.key}
+                        checked={paymentMethod === m.key}
+                        onChange={() => setPaymentMethod(m.key)}
+                        className="mt-1 accent-emerald-300"
+                      />
+                      <div className="flex-1 text-sm text-white/80">{m.label}</div>
+                    </div>
+                  ))}
                 </div>
+
+                {paymentMethod === "card" && (
+                  <div className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-white/50">Card Number</label>
+                        <input
+                          name="cardNumber"
+                          value={form.cardNumber}
+                          onChange={handleChange}
+                          placeholder="1234 5678 9012 3456"
+                          maxLength={19}
+                          className={inputClass}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-white/50">Exp Date</label>
+                        <input
+                          name="expiry"
+                          value={form.expiry}
+                          onChange={handleChange}
+                          placeholder="MM / YY"
+                          className={inputClass}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-white/50">Name on Card</label>
+                        <input
+                          name="cardName"
+                          value={form.cardName}
+                          onChange={handleChange}
+                          placeholder="Alisha Fatima"
+                          className={inputClass}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-white/50">Billing Address</label>
+                        <input
+                          name="address"
+                          value={form.address}
+                          onChange={handleChange}
+                          placeholder="123 Main Street"
+                          className={inputClass}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleOrder}
+                      className="w-full rounded-xl bg-emerald-300 py-3 text-sm font-semibold text-[#0b0b0d] transition hover:-translate-y-0.5"
+                    >
+                      Submit
+                    </button>
+                  </div>
+                )}
+
+                {paymentMethod === "paypal" && (
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+                    You will be redirected to PayPal to complete your purchase.
+                  </div>
+                )}
+
+                {paymentMethod === "cod" && (
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+                    Pay in cash upon delivery. Please ensure the address above is correct.
+                  </div>
+                )}
+
+                {error && <p className="text-sm text-red-300">{error}</p>}
+
                 <div className="flex gap-3 pt-2">
                   <button
                     onClick={() => setStep(1)}
                     className="flex-1 rounded-xl border border-white/15 py-3 text-sm text-white/60 hover:text-white transition"
                   >
-                    ← Back
+                    &larr; Back
                   </button>
-                  <button
-                    onClick={handleOrder}
-                    className="flex-1 rounded-xl bg-emerald-300 py-3 text-sm font-semibold text-[#0b0b0d] transition hover:-translate-y-0.5"
-                  >
-                    Place Order · ${total.toFixed(2)}
-                  </button>
+                  {paymentMethod !== "card" && (
+                    <button
+                      onClick={handleOrder}
+                      className="flex-1 rounded-xl bg-emerald-300 py-3 text-sm font-semibold text-[#0b0b0d] transition hover:-translate-y-0.5"
+                    >
+                      Confirm | ${total.toFixed(2)}
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -262,6 +357,17 @@ const CheckoutPage = () => {
                   <span>Total</span>
                   <span>${total.toFixed(2)}</span>
                 </div>
+              </div>
+              <div className="mt-4 space-y-2">
+                <input
+                  value={coupon}
+                  onChange={(e) => setCoupon(e.target.value)}
+                  placeholder="Coupon code"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/10 transition"
+                />
+                <button className="w-full rounded-xl border border-pink-300 text-pink-200 py-3 text-sm font-semibold hover:bg-pink-300/10 transition">
+                  Apply code
+                </button>
               </div>
             </div>
           </div>

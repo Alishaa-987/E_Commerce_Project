@@ -114,11 +114,11 @@ const Footer = () => {
               Newsletter
             </p>
             <p className="text-sm text-white/50 mb-4 leading-relaxed">
-              Get exclusive drops, early access, and style picks — delivered to your inbox.
+              Get exclusive drops, early access, and style picks - delivered to your inbox.
             </p>
             {subscribed ? (
               <div className="rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-300">
-                You're in. ✓
+                You're in.
               </div>
             ) : (
               <form onSubmit={handleSubscribe} className="space-y-2">
@@ -146,10 +146,10 @@ const Footer = () => {
 
         {/* Bottom bar */}
         <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs text-white/30">
-          <p>© {new Date().getFullYear()} Lumen Market. All rights reserved.</p>
+          <p>(c) {new Date().getFullYear()} Lumen Market. All rights reserved.</p>
           <div className="flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/60" />
-            <span>Secure checkout · Free returns · Verified sellers</span>
+            <span>Secure checkout | Free returns | Verified sellers</span>
           </div>
         </div>
       </div>

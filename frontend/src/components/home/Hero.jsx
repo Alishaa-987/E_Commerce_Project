@@ -90,7 +90,7 @@ const Hero = () => {
                     <div>
                       <span className="text-[9px] uppercase tracking-widest text-emerald-300">Best seller</span>
                       <p className="mt-0.5 text-base font-semibold text-white">Atelier Leather Tote</p>
-                      <p className="mt-1 text-xs text-white/40">Full-grain leather · Limited run</p>
+                      <p className="mt-1 text-xs text-white/40">Full-grain leather | Limited run</p>
                       <div className="mt-2 flex items-center gap-3">
                         <span className="text-base font-semibold text-white">$219</span>
                         <span className="text-sm text-white/30 line-through">$299</span>

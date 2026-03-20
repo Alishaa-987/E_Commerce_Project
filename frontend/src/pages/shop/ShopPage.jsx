@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { AiFillStar } from "react-icons/ai";
 import { FiPackage, FiUsers } from "react-icons/fi";
-import Navbar from "../components/layout/Navbar";
-import Footer from "../components/layout/Footer";
-import ProductCard from "../components/ProductCard";
-import { shops, products } from "../data/mockData";
+import Navbar from "../../components/layout/Navbar";
+import Footer from "../../components/layout/Footer";
+import ProductCard from "../../components/cards/ProductCard";
+import { shops, products } from "../../data/mockData";
 
 const ShopPage = () => {
   const { handle } = useParams();
@@ -18,7 +18,7 @@ const ShopPage = () => {
         <div className="text-center">
           <p className="text-white/40 text-xl font-Playfair mb-4">Shop not found</p>
           <Link to="/" className="text-emerald-300 text-sm hover:text-white transition">
-            ← Go home
+            &larr; Go home
           </Link>
         </div>
       </div>
@@ -79,7 +79,7 @@ const ShopPage = () => {
                   : "bg-white text-[#0b0b0d] hover:-translate-y-0.5"
               }`}
             >
-              {followed ? "Following ✓" : "Follow Shop"}
+              {followed ? "Following" : "Follow Shop"}
             </button>
           </div>
         </div>
@@ -87,7 +87,7 @@ const ShopPage = () => {
         {/* Products */}
         <div className="mb-6">
           <p className="text-[10px] uppercase tracking-widest text-white/30 mb-2">
-            Products · {allProducts.length}
+            Products | {allProducts.length}
           </p>
           <h2 className="text-2xl font-Playfair font-semibold text-white">
             From {shop.name}

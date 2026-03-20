@@ -7,9 +7,9 @@ import {
   FiArrowRight,
   FiShoppingCart,
 } from "react-icons/fi";
-import Navbar from "../components/layout/Navbar";
-import Footer from "../components/layout/Footer";
-import { useCart } from "../context/CartContext";
+import Navbar from "../../components/layout/Navbar";
+import Footer from "../../components/layout/Footer";
+import { useCart } from "../../context/CartContext";
 
 const CartPage = () => {
   const { cartItems, updateQty, removeFromCart, cartTotal, clearCart } = useCart();
@@ -173,13 +173,13 @@ const CartPage = () => {
                   to="/products"
                   className="mt-3 flex w-full items-center justify-center text-xs text-white/40 hover:text-white transition py-2"
                 >
-                  ← Continue shopping
+                  &larr; Continue shopping
                 </Link>
 
                 {/* Trust */}
                 <div className="mt-5 flex items-center justify-center gap-2 text-[10px] text-white/20">
-                  <span>🔒</span>
-                  <span>Secure · Encrypted · Trusted</span>
+                  <span>&#128274;</span>
+                  <span>Secure | Encrypted | Trusted</span>
                 </div>
               </div>
             </div>

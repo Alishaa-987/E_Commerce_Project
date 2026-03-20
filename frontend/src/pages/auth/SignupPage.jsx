@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { server } from "../server";
+import { server } from "../../server";
+import { useSelector } from "react-redux";
 
 const SignupPage = () => {
   const [avatar, setAvatar] = useState(null);
@@ -12,6 +13,8 @@ const SignupPage = () => {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
+  const { isAuthenticated } = useSelector((state) => state.user);
 
   // reset any stale state when the page mounts (after hot reloads or navigation)
   useEffect(() => {
@@ -19,6 +22,12 @@ const SignupPage = () => {
     setSuccessMessage("");
     setIsSubmitting(false);
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/");
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleFileInputChange = (e) => {
     const file = e.target.files[0];
@@ -50,7 +59,7 @@ const SignupPage = () => {
       .post(`${server}/user/create-user`, newForm)
       .then((res) => {
         console.log("signup success:", res.data);
-        setSuccessMessage(res.data.message || "Account create ho gaya.");
+        setSuccessMessage(res.data.message || "Account is created.");
         setName("");
         setEmail("");
         setPassword("");

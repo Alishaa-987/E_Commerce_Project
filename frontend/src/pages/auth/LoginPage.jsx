@@ -1,17 +1,31 @@
 import axios from "axios";
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { server } from "../server";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { server } from "../../server";
+import { loadUser } from "../../redux/actions/user";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [visible, setVisible] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+  const dispatch = useDispatch();
+  const { isAuthenticated } = useSelector((state) => state.user);
+  const redirectTo = location.state?.from?.pathname || "/";
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(redirectTo, { replace: true });
+    }
+  }, [isAuthenticated, navigate, redirectTo]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setMessage("");
+    setMessageType("");
     await axios
       .post(
         `${server}/user/login-user`,
@@ -23,14 +37,16 @@ const LoginPage = () => {
           withCredentials: true,
         },
       )
-      .then((res) => {
+      .then(async () => {
         setMessage("Login successful!");
-        console.log("login success:", res.data);
-        navigate("/");
+        setMessageType("success");
+        await dispatch(loadUser());
+        // navigate(redirectTo, { replace: true });
       })
 
       .catch((err) => {
-        console.log(err)
+        console.log(err);
+        setMessageType("error");
         setMessage(err.response?.data?.message || "Login failed");
       });
   };
@@ -101,7 +117,11 @@ const LoginPage = () => {
               </button>
             </form>
             {message && (
-              <p className="mt-4 text-center text-sm text-red-400">
+              <p
+                className={`mt-4 text-center text-sm ${
+                  messageType === "success" ? "text-emerald-400" : "text-red-400"
+                }`}
+              >
                 {message}
               </p>
             )}

@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { FiArrowRight } from "react-icons/fi";
-import ShopCard from "../ShopCard";
+import ShopCard from "../cards/ShopCard";
 import { shops } from "../../data/mockData";
 
 const FeaturedShops = () => {
