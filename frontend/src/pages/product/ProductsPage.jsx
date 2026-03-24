@@ -4,7 +4,8 @@ import { FiSearch, FiFilter, FiX } from "react-icons/fi";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import ProductCard from "../../components/cards/ProductCard";
-import { products, categories } from "../../data/mockData";
+import { categories } from "../../data/mockData";
+import { getCatalogProducts } from "../../data/catalog";
 
 const sortOptions = [
   { label: "Newest", value: "new" },
@@ -22,6 +23,7 @@ const ProductsPage = () => {
 
   const activeCategory = searchParams.get("category") || "";
   const searchQuery = searchParams.get("search") || "";
+  const allProducts = useMemo(() => getCatalogProducts(), []);
 
   const setCategory = (cat) => {
     const params = new URLSearchParams(searchParams);
@@ -34,7 +36,7 @@ const ProductsPage = () => {
   };
 
   const filteredProducts = useMemo(() => {
-    let result = [...products];
+    let result = [...allProducts];
 
     if (activeCategory) {
       result = result.filter((p) => p.category === activeCategory);
@@ -47,7 +49,7 @@ const ProductsPage = () => {
           p.name.toLowerCase().includes(q) ||
           p.category.toLowerCase().includes(q) ||
           p.shopName.toLowerCase().includes(q) ||
-          p.tags.some((t) => t.includes(q))
+          p.tags.some((t) => t.toLowerCase().includes(q))
       );
     }
 
@@ -71,7 +73,7 @@ const ProductsPage = () => {
     }
 
     return result;
-  }, [activeCategory, searchQuery, sort, priceMax]);
+  }, [activeCategory, searchQuery, sort, priceMax, allProducts]);
 
   const FilterPanel = () => (
     <div className="space-y-6">

@@ -12,7 +12,8 @@ import {
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import ProductCard from "../../components/cards/ProductCard";
-import { products, shops } from "../../data/mockData";
+import { shops } from "../../data/mockData";
+import { getCatalogProductById, getCatalogProducts } from "../../data/catalog";
 import { useCart } from "../../context/CartContext";
 
 const mockReviews = [
@@ -32,7 +33,8 @@ const Stars = ({ rating }) =>
 
 const ProductDetailPage = () => {
   const { id } = useParams();
-  const product = products.find((p) => p.id === Number(id));
+  const catalogProducts = getCatalogProducts();
+  const product = getCatalogProductById(id);
   const { addToCart } = useCart();
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
@@ -51,10 +53,19 @@ const ProductDetailPage = () => {
   }
 
   const shop = shops.find((s) => s.id === product.shopId);
-  const related = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  const shopProductsCount = catalogProducts.filter(
+    (item) => item.shopId === product.shopId
+  ).length;
+  const related = catalogProducts
+    .filter((p) => p.category === product.category && p.id !== product.id)
+    .slice(0, 4);
   const discount = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : null;
+  const gallery =
+    product.gallery?.length > 0
+      ? product.gallery
+      : [product.image, product.image, product.image];
 
   const handleAddToCart = () => {
     for (let i = 0; i < qty; i++) addToCart(product);
@@ -101,15 +112,15 @@ const ProductDetailPage = () => {
             </div>
             {/* Thumbnails (same image - mock) */}
             <div className="mt-4 flex gap-3">
-              {[0, 1, 2].map((i) => (
+              {gallery.slice(0, 3).map((image, i) => (
                 <div
-                  key={i}
+                  key={`${product.id}-${i}`}
                   className={`h-16 w-16 rounded-xl overflow-hidden border cursor-pointer transition ${
                     i === 0 ? "border-emerald-300/50" : "border-white/10 opacity-50"
                   }`}
                 >
                   <img
-                    src={product.image}
+                    src={image}
                     alt=""
                     className="w-full h-full object-cover"
                   />
@@ -286,7 +297,9 @@ const ProductDetailPage = () => {
               <div>
                 <p className="text-sm font-semibold text-white">{shop?.name || product.shopName}</p>
                 <p className="text-xs text-white/40">
-                  {shop ? `${shop.products} products | ${shop.followers} followers` : "Trusted marketplace seller"}
+                  {shop
+                    ? `${shopProductsCount} products | ${shop.followers} followers`
+                    : "Trusted marketplace seller"}
                 </p>
               </div>
             </div>

@@ -22,12 +22,24 @@ const SellerLoginPage = () => {
     setError("");
     setLoading(true);
     try {
-      await axios.post(
+      const { data } = await axios.post(
         `${server}/seller/login-seller`,
         { email: form.email, password: form.password },
         { withCredentials: true }
       );
       localStorage.setItem("sellerAuth", "true");
+      localStorage.setItem("sellerEmail", data?.user?.email || form.email);
+      if (data?.user?._id) {
+        localStorage.setItem("sellerId", data.user._id);
+      }
+      if (data?.user?.shopName) {
+        localStorage.setItem("sellerShopName", data.user.shopName);
+      }
+      if (data?.user?.avatar) {
+        localStorage.setItem("sellerAvatar", data.user.avatar);
+      } else {
+        localStorage.removeItem("sellerAvatar");
+      }
       navigate("/seller/dashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Login failed.");

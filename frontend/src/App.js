@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import "./App.css";
 import {
   ActivationPage,
@@ -12,14 +12,21 @@ import {
   ProfilePage,
   SellerActivationPage,
   SellerLoginPage,
+  SellerProfilePage,
   SellerSignupPage,
   SellerDashboardPage,
+  SellerOrdersPage,
+  SellerProductsPage,
+  SellerCreateProductPage,
+  SellerInboxPage,
+  SellerWorkspaceSectionPage,
   ShopPage,
   SignupPage,
   WishlistPage,
 } from "./pages";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import ProtectedSellerRoute from "./components/auth/ProtectedSellerRoute";
+import SellerWorkspaceLayout from "./components/seller/dashboard/SellerWorkspaceLayout";
 import { CartProvider } from "./context/CartContext";
 import { WishlistProvider } from "./context/WishlistContext";
 import { loadUser } from "./redux/actions/user";
@@ -42,13 +49,52 @@ const App = () => {
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/seller-activation/:activation_token" element={<SellerActivationPage />} />
             <Route
-              path="/seller/dashboard"
+              path="/seller/profile"
               element={
                 <ProtectedSellerRoute>
-                  <SellerDashboardPage />
+                  <SellerProfilePage />
                 </ProtectedSellerRoute>
               }
             />
+            <Route
+              path="/seller"
+              element={
+                <ProtectedSellerRoute>
+                  <SellerWorkspaceLayout />
+                </ProtectedSellerRoute>
+              }
+            >
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<SellerDashboardPage />} />
+              <Route path="orders" element={<SellerOrdersPage />} />
+              <Route path="products" element={<SellerProductsPage />} />
+              <Route path="create-product" element={<SellerCreateProductPage />} />
+              <Route
+                path="events"
+                element={<SellerWorkspaceSectionPage sectionKey="allEvents" />}
+              />
+              <Route
+                path="create-event"
+                element={<SellerWorkspaceSectionPage sectionKey="createEvent" />}
+              />
+              <Route
+                path="withdraw-money"
+                element={<SellerWorkspaceSectionPage sectionKey="withdrawMoney" />}
+              />
+              <Route path="inbox" element={<SellerInboxPage />} />
+              <Route
+                path="discount-codes"
+                element={<SellerWorkspaceSectionPage sectionKey="discountCodes" />}
+              />
+              <Route
+                path="refunds"
+                element={<SellerWorkspaceSectionPage sectionKey="refunds" />}
+              />
+              <Route
+                path="settings"
+                element={<SellerWorkspaceSectionPage sectionKey="settings" />}
+              />
+            </Route>
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
             <Route path="/shop/:handle" element={<ShopPage />} />

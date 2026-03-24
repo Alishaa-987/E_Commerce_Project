@@ -5,7 +5,8 @@ import { FiPackage, FiUsers } from "react-icons/fi";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import ProductCard from "../../components/cards/ProductCard";
-import { shops, products } from "../../data/mockData";
+import { shops } from "../../data/mockData";
+import { getCatalogProducts, getCatalogProductsByShopId } from "../../data/catalog";
 
 const ShopPage = () => {
   const { handle } = useParams();
@@ -25,8 +26,9 @@ const ShopPage = () => {
     );
   }
 
-  const shopProducts = products.filter((p) => p.shopId === shop.id);
-  const allProducts = shopProducts.length > 0 ? shopProducts : products.slice(0, 4);
+  const shopProducts = getCatalogProductsByShopId(shop.id);
+  const allProducts =
+    shopProducts.length > 0 ? shopProducts : getCatalogProducts().slice(0, 4);
 
   return (
     <div className="min-h-screen bg-[#0b0b0d] text-white font-Poppins">
@@ -63,7 +65,7 @@ const ShopPage = () => {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <FiPackage size={14} />
-                  {shop.products} products
+                  {shopProducts.length} products
                 </span>
                 <span className="flex items-center gap-1.5">
                   <FiUsers size={14} />
