@@ -1,12 +1,15 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { FiArrowRight } from "react-icons/fi";
+import { useSelector } from "react-redux";
 import ProductCard from "../cards/ProductCard";
-import { products } from "../../data/mockData";
 
 const BestSelling = () => {
-  const bestSellers = products.filter((p) => p.isBestSeller).slice(0, 4);
-  const featured = products.slice(0, 4);
+  const { allProducts, allProductsLoading } = useSelector((state) => state.products);
+  const bestSellers = [...allProducts]
+    .sort((a, b) => Number(b.sold || 0) - Number(a.sold || 0))
+    .slice(0, 4);
+  const featured = allProducts.slice(0, 4);
   const displayProducts = bestSellers.length >= 4 ? bestSellers : featured;
 
   return (
@@ -31,11 +34,15 @@ const BestSelling = () => {
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {displayProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {allProductsLoading ? (
+          <div className="py-10 text-center text-sm text-white/45">Loading products...</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {displayProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        )}
 
         {/* Mobile CTA */}
         <div className="mt-6 flex justify-center sm:hidden">

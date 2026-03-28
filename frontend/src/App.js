@@ -15,9 +15,12 @@ import {
   SellerProfilePage,
   SellerSignupPage,
   SellerDashboardPage,
+  SellerEventsPage,
   SellerOrdersPage,
   SellerProductsPage,
   SellerCreateProductPage,
+  SellerCreateEventPage,
+  SellerDiscountCodesPage,
   SellerInboxPage,
   SellerWorkspaceSectionPage,
   ShopPage,
@@ -30,14 +33,28 @@ import SellerWorkspaceLayout from "./components/seller/dashboard/SellerWorkspace
 import { CartProvider } from "./context/CartContext";
 import { WishlistProvider } from "./context/WishlistContext";
 import { loadUser } from "./redux/actions/user";
+import { LoadingUserFail } from "./redux/reducers/user";
+import { getAllProducts } from "./redux/actions/product";
+import { getAllShops } from "./redux/actions/seller";
+import { getAllEvents } from "./redux/actions/event";
 import { useDispatch } from "react-redux";
 
 const App = () => {
   const dispatch = useDispatch();
-  useEffect(()=>{
-    dispatch(loadUser());
+  useEffect(() => {
+    const shouldLoadUser =
+      typeof window !== "undefined" && window.localStorage.getItem("userAuth") === "true";
 
-  },[dispatch]);
+    if (shouldLoadUser) {
+      dispatch(loadUser());
+    } else {
+      dispatch(LoadingUserFail(null));
+    }
+
+    dispatch(getAllProducts());
+    dispatch(getAllShops());
+    dispatch(getAllEvents());
+  }, [dispatch]);
   return (
     <BrowserRouter>
       <WishlistProvider>
@@ -69,14 +86,8 @@ const App = () => {
               <Route path="orders" element={<SellerOrdersPage />} />
               <Route path="products" element={<SellerProductsPage />} />
               <Route path="create-product" element={<SellerCreateProductPage />} />
-              <Route
-                path="events"
-                element={<SellerWorkspaceSectionPage sectionKey="allEvents" />}
-              />
-              <Route
-                path="create-event"
-                element={<SellerWorkspaceSectionPage sectionKey="createEvent" />}
-              />
+              <Route path="events" element={<SellerEventsPage />} />
+              <Route path="create-event" element={<SellerCreateEventPage />} />
               <Route
                 path="withdraw-money"
                 element={<SellerWorkspaceSectionPage sectionKey="withdrawMoney" />}
@@ -84,7 +95,7 @@ const App = () => {
               <Route path="inbox" element={<SellerInboxPage />} />
               <Route
                 path="discount-codes"
-                element={<SellerWorkspaceSectionPage sectionKey="discountCodes" />}
+                element={<SellerDiscountCodesPage />}
               />
               <Route
                 path="refunds"

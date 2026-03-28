@@ -2,15 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { FiCheckCircle } from "react-icons/fi";
-import { categories } from "../../../data/mockData";
-import { createStoredSellerProduct } from "../../../data/catalog";
 import { createProduct } from "../../../redux/actions/product";
 import SellerProductImagePicker from "./SellerProductImagePicker";
-// import { isLoading,success,error } from "../../../redux/selectors/product";
 const inputClass =
   "w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none transition focus:border-white/25 focus:bg-white/[0.05]";
-
-const defaultCategory = categories[0]?.name || "Electronics";
 
 const createImagePreviewItems = async (files) => {
   const selectedFiles = Array.from(files);
@@ -40,8 +35,9 @@ const SellerCreateProductPanel = ({ sellerShop, onProductCreated }) => {
   const [form, setForm] = useState({
     name: "",
     description: "",
-    category: defaultCategory,
+    category: "",
     tags: "",
+    couponCode: "",
     originalPrice: "",
     price: "",
     stock: "",
@@ -102,8 +98,9 @@ const SellerCreateProductPanel = ({ sellerShop, onProductCreated }) => {
     setForm({
       name: "",
       description: "",
-      category: defaultCategory,
+      category: "",
       tags: "",
+      couponCode: "",
       originalPrice: "",
       price: "",
       stock: "",
@@ -116,7 +113,13 @@ const SellerCreateProductPanel = ({ sellerShop, onProductCreated }) => {
     setError("");
     setSuccess("");
 
-    if (!form.name.trim() || !form.description.trim() || !form.price || !form.stock) {
+    if (
+      !form.name.trim() ||
+      !form.description.trim() ||
+      !form.category.trim() ||
+      !form.price ||
+      !form.stock
+    ) {
       setError("Please fill all required fields.");
       return;
     }
@@ -169,34 +172,15 @@ const SellerCreateProductPanel = ({ sellerShop, onProductCreated }) => {
     newForm.append("description", form.description.trim());
     newForm.append("category", form.category);
     newForm.append("tags", tagPreview.join(","));
+    if (form.couponCode.trim()) {
+      newForm.append("couponCode", form.couponCode.trim());
+    }
     if (form.originalPrice) {
       newForm.append("orignalPrice", form.originalPrice);
     }
     newForm.append("discountPrice", form.price);
     newForm.append("stock", form.stock);
     newForm.append("shopId", sellerId);
-
-    const createdProduct = {
-      id: Date.now(),
-      name: form.name.trim(),
-      price: discountedPrice,
-      originalPrice,
-      rating: 0,
-      reviews: 0,
-      image: images[0].preview,
-      gallery: images.map((image) => image.preview),
-      category: form.category,
-      shopId: sellerShop.id,
-      shopName: sellerShop.name,
-      sold: 0,
-      inStock: stock > 0,
-      stock,
-      isBestSeller: false,
-      isNew: true,
-      description: form.description.trim(),
-      tags: tagPreview,
-      createdAt: new Date().toISOString(),
-    };
 
     setIsSubmitting(true);
     const result = await dispatch(createProduct(newForm));
@@ -207,8 +191,7 @@ const SellerCreateProductPanel = ({ sellerShop, onProductCreated }) => {
       return;
     }
 
-    createStoredSellerProduct(createdProduct);
-    onProductCreated?.(createdProduct, newForm);
+    onProductCreated?.();
     setSuccess("Product created successfully. Redirecting to dashboard...");
     resetForm();
   };
@@ -254,22 +237,13 @@ const SellerCreateProductPanel = ({ sellerShop, onProductCreated }) => {
 
           <label className="space-y-2 text-sm text-white/70">
             Category <span className="text-rose-300">*</span>
-            <select
+            <input
               name="category"
               value={form.category}
               onChange={handleChange}
               className={inputClass}
-            >
-              {categories.map((category) => (
-                <option
-                  key={category.id}
-                  value={category.name}
-                  className="bg-[#111114]"
-                >
-                  {category.name}
-                </option>
-              ))}
-            </select>
+              placeholder="Enter product category..."
+            />
           </label>
 
           <label className="space-y-2 text-sm text-white/70">
@@ -280,6 +254,17 @@ const SellerCreateProductPanel = ({ sellerShop, onProductCreated }) => {
               onChange={handleChange}
               className={inputClass}
               placeholder="Enter your product tags..."
+            />
+          </label>
+
+          <label className="space-y-2 text-sm text-white/70">
+            Coupon Code
+            <input
+              name="couponCode"
+              value={form.couponCode}
+              onChange={handleChange}
+              className={inputClass}
+              placeholder="Optional coupon code..."
             />
           </label>
 
@@ -311,7 +296,7 @@ const SellerCreateProductPanel = ({ sellerShop, onProductCreated }) => {
             />
           </label>
 
-          <label className="space-y-2 text-sm text-white/70 md:col-span-2">
+          <label className="space-y-2 text-sm text-white/70">
             Product Stock <span className="text-rose-300">*</span>
             <input
               name="stock"

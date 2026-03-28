@@ -16,6 +16,11 @@
     tags:{
         type: String,
     },
+    couponCode: {
+        type: String,
+        default: "",
+        trim: true,
+    },
     orignalPrice:{
         type:  Number,
     },

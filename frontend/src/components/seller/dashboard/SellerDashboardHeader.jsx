@@ -9,6 +9,8 @@ const SellerDashboardHeader = ({
   activeSection,
   onLogout,
 }) => {
+  const avatarLabel = sellerShop?.name?.trim()?.charAt(0)?.toUpperCase() || "S";
+
   return (
     <>
       <header className="sticky top-0 z-20 border-b border-white/10 bg-[#0b0b0d]/80 backdrop-blur-xl">
@@ -34,11 +36,17 @@ const SellerDashboardHeader = ({
               className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 transition hover:border-white/25"
               aria-label="Open seller profile"
             >
-              <img
-                src={sellerAvatar}
-                alt={sellerShop.name}
-                className="h-9 w-9 rounded-full object-cover"
-              />
+              {sellerAvatar ? (
+                <img
+                  src={sellerAvatar}
+                  alt={sellerShop.name}
+                  className="h-9 w-9 rounded-full object-cover"
+                />
+              ) : (
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-300/15 text-xs font-semibold text-emerald-200">
+                  {avatarLabel}
+                </div>
+              )}
             </Link>
             <button
               onClick={onLogout}

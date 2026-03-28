@@ -20,14 +20,22 @@ const SellerProfileSidebar = ({
   onEditShop,
   onLogout,
 }) => {
+  const avatarLabel = sellerShop?.name?.trim()?.charAt(0)?.toUpperCase() || "S";
+
   return (
     <aside className="rounded-[30px] border border-white/10 bg-[#111114] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] lg:p-7">
       <div className="flex flex-col items-center text-center">
-        <img
-          src={sellerAvatar}
-          alt={sellerShop.name}
-          className="h-28 w-28 rounded-full border border-white/10 object-cover shadow-[0_18px_40px_rgba(0,0,0,0.45)]"
-        />
+        {sellerAvatar ? (
+          <img
+            src={sellerAvatar}
+            alt={sellerShop.name}
+            className="h-28 w-28 rounded-full border border-white/10 object-cover shadow-[0_18px_40px_rgba(0,0,0,0.45)]"
+          />
+        ) : (
+          <div className="flex h-28 w-28 items-center justify-center rounded-full border border-white/10 bg-emerald-300/15 text-3xl font-semibold text-emerald-200 shadow-[0_18px_40px_rgba(0,0,0,0.45)]">
+            {avatarLabel}
+          </div>
+        )}
         <h1 className="mt-5 text-3xl font-Playfair font-semibold text-white">
           {sellerShop.name}
         </h1>

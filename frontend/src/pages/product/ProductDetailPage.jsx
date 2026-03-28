@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { AiFillStar, AiOutlineStar } from "react-icons/ai";
 import {
@@ -9,18 +9,12 @@ import {
   FiShield,
   FiMessageSquare,
 } from "react-icons/fi";
+import { useDispatch, useSelector } from "react-redux";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import ProductCard from "../../components/cards/ProductCard";
-import { shops } from "../../data/mockData";
-import { getCatalogProductById, getCatalogProducts } from "../../data/catalog";
 import { useCart } from "../../context/CartContext";
-
-const mockReviews = [
-  { id: 1, name: "Amara K.", avatar: "https://i.pravatar.cc/40?u=amara", rating: 5, date: "2 days ago", text: "Absolutely stunning quality. Exceeded my expectations - will definitely order again." },
-  { id: 2, name: "James R.", avatar: "https://i.pravatar.cc/40?u=james", rating: 4, date: "1 week ago", text: "Great product, fast shipping. The packaging was premium and the item arrived in perfect condition." },
-  { id: 3, name: "Sofia L.", avatar: "https://i.pravatar.cc/40?u=sofia", rating: 5, date: "2 weeks ago", text: "Worth every penny. The craftsmanship is beautiful and it looks even better in person." },
-];
+import { getProductDetails } from "../../redux/actions/product";
 
 const Stars = ({ rating }) =>
   Array.from({ length: 5 }).map((_, i) =>
@@ -33,11 +27,36 @@ const Stars = ({ rating }) =>
 
 const ProductDetailPage = () => {
   const { id } = useParams();
-  const catalogProducts = getCatalogProducts();
-  const product = getCatalogProductById(id);
+  const dispatch = useDispatch();
   const { addToCart } = useCart();
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+  const { allProducts, productDetails, productDetailsLoading } = useSelector(
+    (state) => state.products
+  );
+  const { allShops } = useSelector((state) => state.seller);
+  const product = useMemo(
+    () =>
+      allProducts.find((item) => item.id === id) ||
+      (productDetails?.id === id ? productDetails : null),
+    [allProducts, id, productDetails]
+  );
+
+  useEffect(() => {
+    if (!id || product) {
+      return;
+    }
+
+    dispatch(getProductDetails(id));
+  }, [dispatch, id, product]);
+
+  if (productDetailsLoading && !product) {
+    return (
+      <div className="min-h-screen bg-[#0b0b0d] text-white font-Poppins flex items-center justify-center">
+        <p className="text-white/40 text-xl font-Playfair">Loading product...</p>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -52,11 +71,20 @@ const ProductDetailPage = () => {
     );
   }
 
-  const shop = shops.find((s) => s.id === product.shopId);
-  const shopProductsCount = catalogProducts.filter(
+  const shop =
+    allShops.find((seller) => seller.id === product.shopId) || {
+      id: product.shopId,
+      name: product.shopName,
+      handle: product.shopHandle,
+      avatar: product.shopAvatar,
+      description: product.shopDescription,
+      followers: product.shopFollowers,
+      rating: product.shopRating,
+    };
+  const shopProductsCount = allProducts.filter(
     (item) => item.shopId === product.shopId
   ).length;
-  const related = catalogProducts
+  const related = allProducts
     .filter((p) => p.category === product.category && p.id !== product.id)
     .slice(0, 4);
   const discount = product.originalPrice
@@ -349,22 +377,13 @@ const ProductDetailPage = () => {
             </p>
             <h2 className="text-2xl font-Playfair font-semibold text-white">Reviews</h2>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {mockReviews.map((r) => (
-              <div key={r.id} className="rounded-2xl border border-white/10 bg-[#111114] p-5">
-                <div className="flex items-center gap-3 mb-3">
-                  <img src={r.avatar} alt={r.name} className="h-9 w-9 rounded-full" />
-                  <div>
-                    <p className="text-sm font-medium text-white">{r.name}</p>
-                    <p className="text-xs text-white/30">{r.date}</p>
-                  </div>
-                  <div className="ml-auto flex items-center gap-0.5">
-                    <Stars rating={r.rating} />
-                  </div>
-                </div>
-                <p className="text-sm text-white/60 leading-relaxed">{r.text}</p>
-              </div>
-            ))}
+          <div className="rounded-3xl border border-white/10 bg-[#111114] p-8 text-center">
+            <h3 className="text-2xl font-Playfair font-semibold text-white">
+              No reviews yet
+            </h3>
+            <p className="mt-3 text-sm text-white/50">
+              This product does not have a real backend review source yet, so no mock reviews are shown here.
+            </p>
           </div>
         </div>
 

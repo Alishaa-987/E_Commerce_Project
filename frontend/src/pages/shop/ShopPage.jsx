@@ -2,16 +2,43 @@ import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { AiFillStar } from "react-icons/ai";
 import { FiPackage, FiUsers } from "react-icons/fi";
+import { useDispatch, useSelector } from "react-redux";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import ProductCard from "../../components/cards/ProductCard";
-import { shops } from "../../data/mockData";
-import { getCatalogProducts, getCatalogProductsByShopId } from "../../data/catalog";
+import { getShopByHandle } from "../../redux/actions/seller";
 
 const ShopPage = () => {
   const { handle } = useParams();
-  const shop = shops.find((s) => s.handle === handle);
   const [followed, setFollowed] = useState(false);
+  const dispatch = useDispatch();
+  const { allShops, publicShop, publicShopLoading } = useSelector((state) => state.seller);
+  const { allProducts, allProductsLoading } = useSelector((state) => state.products);
+  const shop =
+    (publicShop?.handle === handle && publicShop) ||
+    allShops.find((seller) => seller.handle === handle);
+
+  React.useEffect(() => {
+    if (!handle) {
+      return;
+    }
+
+    if (!shop) {
+      dispatch(getShopByHandle(handle));
+    }
+  }, [dispatch, handle, shop]);
+
+  const shopProducts = shop
+    ? allProducts.filter((product) => product.shopId === shop.id)
+    : [];
+
+  if ((publicShopLoading && !shop) || allProductsLoading) {
+    return (
+      <div className="min-h-screen bg-[#0b0b0d] text-white font-Poppins flex items-center justify-center">
+        <p className="text-white/40 text-xl font-Playfair">Loading shop...</p>
+      </div>
+    );
+  }
 
   if (!shop) {
     return (
@@ -25,10 +52,6 @@ const ShopPage = () => {
       </div>
     );
   }
-
-  const shopProducts = getCatalogProductsByShopId(shop.id);
-  const allProducts =
-    shopProducts.length > 0 ? shopProducts : getCatalogProducts().slice(0, 4);
 
   return (
     <div className="min-h-screen bg-[#0b0b0d] text-white font-Poppins">
@@ -89,17 +112,28 @@ const ShopPage = () => {
         {/* Products */}
         <div className="mb-6">
           <p className="text-[10px] uppercase tracking-widest text-white/30 mb-2">
-            Products | {allProducts.length}
+            Products | {shopProducts.length}
           </p>
           <h2 className="text-2xl font-Playfair font-semibold text-white">
             From {shop.name}
           </h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {allProducts.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
+        {shopProducts.length ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {shopProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-3xl border border-white/10 bg-[#111114] p-8 text-center">
+            <h3 className="text-2xl font-Playfair font-semibold text-white">
+              No products yet
+            </h3>
+            <p className="mt-3 text-sm text-white/50">
+              This shop has not published any products yet.
+            </p>
+          </div>
+        )}
       </div>
 
       <Footer />

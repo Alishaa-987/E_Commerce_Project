@@ -10,9 +10,6 @@ import {
   FiTag,
   FiBox,
 } from "react-icons/fi";
-import { shops } from "../../data/mockData";
-import { getCatalogProductsByShopId } from "../../data/catalog";
-import { backend_url } from "../../server";
 import { formatSellerCurrency } from "./sellerSession";
 
 export const sellerNavItems = [
@@ -67,217 +64,137 @@ export const sellerProfileTabs = [
 ];
 
 export const sellerDashboardWorkspaceCopy = {
-  createProduct:
-    "Start a new product draft, upload media, and prepare the next item for launch.",
   allEvents:
     "Review live and upcoming campaigns tied to your shop so you can track what is currently running.",
-  createEvent:
-    "Set up a new shop event with timing, offer details, and featured products before it goes live.",
   withdrawMoney:
-    "Check your payout balance, upcoming releases, and the amount that can be withdrawn next.",
+    "Payout workflows are not connected yet. When the backend payout module is added, your live balance and withdrawal history will appear here.",
   discountCodes:
-    "Create and manage discount codes for launches, repeat buyers, and limited campaigns.",
+    "Discount code management is not connected yet. Add the backend discount flow here when you are ready to support real coupons.",
   refunds:
-    "Handle refund requests, order issues, and buyer resolutions from one place.",
+    "Refund operations are not connected yet. Once the refund API is added, requests and resolutions will show here instead of mock content.",
   settings:
-    "Update store details, storefront defaults, and seller-side operational preferences.",
+    "Store settings are ready for real seller data, but profile editing has not been wired yet. This section can be connected to an update-seller endpoint next.",
 };
 
-const sellerMetaByHandle = {
-  "studio-blanc": {
-    address: "4678 Honeysuckle Lane, Seattle",
-    phone: "1783811512",
-    joinedOn: "2023-03-17",
-  },
-  "maison-luxe": {
-    address: "915 Riverview Avenue, New York",
-    phone: "2125550193",
-    joinedOn: "2022-11-08",
-  },
-  "lumiere-beauty": {
-    address: "74 Rosewater Street, Los Angeles",
-    phone: "3105551227",
-    joinedOn: "2023-05-21",
-  },
-  "tech-vault": {
-    address: "1208 Harbor Tech Drive, San Jose",
-    phone: "4085554300",
-    joinedOn: "2021-09-14",
-  },
-  "street-form": {
-    address: "85 Mercer Lane, Chicago",
-    phone: "7735554401",
-    joinedOn: "2024-01-05",
-  },
-  timecraft: {
-    address: "18 Regent Square, Boston",
-    phone: "6175557722",
-    joinedOn: "2022-02-18",
-  },
+const toReadableJoinedDate = (value) => {
+  if (!value) {
+    return "Recently joined";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Recently joined";
+  }
+
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 };
 
-export const getSellerWorkspaceData = (productLimit = 8) => {
-  const storage =
-    typeof window !== "undefined" ? window.localStorage : null;
-  const storedShopName = storage?.getItem("sellerShopName");
-  const storedEmail = storage?.getItem("sellerEmail") || "seller@lumen.market";
-  const storedAvatar = storage?.getItem("sellerAvatar");
-
-  const sellerShop =
-    shops.find((shop) => shop.name === storedShopName) ||
-    shops.find((shop) => shop.name === "Studio Blanc") ||
-    shops[0];
-
-  const allSellerProducts = getCatalogProductsByShopId(sellerShop.id);
-  const sellerProducts = allSellerProducts.slice(0, productLimit);
-  const sellerProductCount = allSellerProducts.length;
-
-  const sellerAvatar =
-    storedAvatar && !storedAvatar.startsWith("http")
-      ? `${backend_url}${storedAvatar}`
-      : storedAvatar || sellerShop.avatar;
-
-  const shopMeta = sellerMetaByHandle[sellerShop.handle] || {
-    address: "204 Market Street, Seattle",
-    phone: "2065552030",
-    joinedOn: "2023-01-12",
-  };
-
-  const runningEvents = [
-    {
-      id: "event-1",
-      title: `${sellerShop.name} Weekend Edit`,
-      window: "Mar 23 - Mar 27",
-      status: "Live",
-      detail: "Bundle the best-selling picks into a limited home refresh drop.",
-      impact: "2.3k impressions",
-    },
-    {
-      id: "event-2",
-      title: "VIP Repeat Buyers",
-      window: "Mar 28 - Apr 01",
-      status: "Scheduled",
-      detail: "Private access for returning customers before the public release.",
-      impact: "148 notified shoppers",
-    },
-    {
-      id: "event-3",
-      title: "Free Shipping Threshold Push",
-      window: "Apr 04 - Apr 07",
-      status: "Draft",
-      detail: "Lift average order value with a higher free-shipping threshold campaign.",
-      impact: "Projected +9% basket size",
-    },
-  ];
-
-  const shopReviews = [
-    {
-      id: "review-1",
-      name: "Areeba Hassan",
-      rating: 5,
-      date: "2 days ago",
-      title: "Packaging felt premium",
-      body: "Everything arrived carefully packed and exactly matched the shop photos.",
-    },
-    {
-      id: "review-2",
-      name: "Marcus Lee",
-      rating: 4,
-      date: "5 days ago",
-      title: "Fast dispatch",
-      body: "The seller answered quickly and shipped faster than expected.",
-    },
-    {
-      id: "review-3",
-      name: "Sofia Bennett",
-      rating: 5,
-      date: "1 week ago",
-      title: "Will order again",
-      body: "Quality was strong and the storefront experience felt polished from start to finish.",
-    },
-  ];
-
-  return {
-    storedEmail,
-    sellerShop,
-    sellerProducts,
-    sellerProductCount,
-    sellerAvatar,
-    shopMeta,
-    runningEvents,
-    shopReviews,
-  };
+const fallbackSeller = {
+  id: "",
+  _id: "",
+  name: "Your Shop",
+  shopName: "Your Shop",
+  handle: "",
+  avatar: "",
+  banner: "",
+  description: "Set up your storefront details to personalize this workspace.",
+  rating: 0,
+  followers: 0,
+  phone: "",
+  address: "",
+  zip: "",
+  email: "",
+  productCount: 0,
+  products: 0,
+  createdAt: "",
 };
 
-export const getSellerAverageRating = (items, fallbackRating) => {
+export const getSellerAverageRating = (items = [], fallbackRating = 0) => {
   if (!items.length) {
-    return fallbackRating.toFixed(1);
+    return Number(fallbackRating || 0).toFixed(1);
   }
 
   return (
-    items.reduce((sum, item) => sum + item.rating, 0) / items.length
+    items.reduce((sum, item) => sum + Number(item.rating || 0), 0) / items.length
   ).toFixed(1);
 };
 
-export const getSellerDashboardData = (productLimit = 6) => {
-  const workspace = getSellerWorkspaceData(productLimit);
-  const { sellerShop, sellerProducts, sellerProductCount } = workspace;
-  const averageRating = getSellerAverageRating(sellerProducts, sellerShop.rating);
-  const totalRevenue = sellerProducts.reduce(
-    (sum, product) => sum + product.sold * product.price,
+export const getSellerWorkspaceData = ({
+  sellerShop,
+  sellerProducts = [],
+  sellerEvents = [],
+  storedEmail = "",
+  sellerAvatar = "",
+}) => {
+  const shop = sellerShop || fallbackSeller;
+  const resolvedAvatar = sellerAvatar || shop.avatar || "";
+
+  return {
+    storedEmail: storedEmail || shop.email || "",
+    sellerShop: shop,
+    sellerProducts,
+    sellerProductCount: sellerProducts.length,
+    sellerAvatar: resolvedAvatar,
+    shopMeta: {
+      address: shop.address || "No address added yet.",
+      phone: shop.phone || "No phone added yet.",
+      joinedOn: toReadableJoinedDate(shop.createdAt),
+    },
+    runningEvents: sellerEvents,
+    shopReviews: [],
+  };
+};
+
+export const getSellerDashboardData = ({
+  sellerShop,
+  sellerProducts = [],
+  sellerEvents = [],
+  storedEmail = "",
+  sellerAvatar = "",
+}) => {
+  const workspace = getSellerWorkspaceData({
+    sellerShop,
+    sellerProducts,
+    sellerEvents,
+    storedEmail,
+    sellerAvatar,
+  });
+  const { sellerShop: shop, sellerProductCount } = workspace;
+  const averageRating = getSellerAverageRating(workspace.sellerProducts, shop.rating);
+  const totalRevenue = workspace.sellerProducts.reduce(
+    (sum, product) => sum + Number(product.sold || 0) * Number(product.price || 0),
     0
   );
-
-  const recentOrders = sellerProducts.slice(0, 4).map((product, index) => ({
-    id: `LM-${2401 + index}`,
-    customer: ["Aisha Khan", "Noah Carter", "Sana Ali", "Omar Sheikh"][index],
-    item: product.name,
-    total: product.price * (index === 0 ? 2 : 1),
-    status: ["Processing", "Packed", "Shipped", "Delivered"][index],
-    placedAt: ["10 min ago", "42 min ago", "2 hrs ago", "Today, 9:14 AM"][index],
-  }));
-
-  const inboxThreads = [
-    {
-      name: "Amna Sheikh",
-      subject: `Question about ${sellerProducts[0]?.name || "your listing"}`,
-      time: "8m ago",
-    },
-    {
-      name: "Jake Wilson",
-      subject: "Bulk order for curated gifting",
-      time: "34m ago",
-    },
-    {
-      name: "Support Team",
-      subject: "Dispatch profile updated",
-      time: "2h ago",
-    },
-  ];
 
   const overviewCards = [
     {
       label: "Net Revenue",
       value: formatSellerCurrency(totalRevenue),
-      detail: "+12.4% vs last month",
+      detail: "From sold items",
       metricKey: "revenue",
     },
     {
-      label: "Orders Fulfilled",
-      value: sellerProducts.reduce((sum, product) => sum + product.sold, 0).toLocaleString(),
-      detail: "96% on-time dispatch",
+      label: "Sold Items",
+      value: workspace.sellerProducts
+        .reduce((sum, product) => sum + Number(product.sold || 0), 0)
+        .toLocaleString(),
+      detail: "Units sold",
       metricKey: "orders",
     },
     {
       label: "Store Followers",
-      value: sellerShop.followers.toLocaleString(),
-      detail: "Traffic rising this week",
+      value: Number(shop.followers || 0).toLocaleString(),
+      detail: "Shop audience",
       metricKey: "followers",
     },
     {
       label: "Average Rating",
       value: averageRating,
-      detail: `${sellerProductCount} active listings`,
+      detail: `${sellerProductCount} listings`,
       metricKey: "rating",
     },
   ];
@@ -286,8 +203,8 @@ export const getSellerDashboardData = (productLimit = 6) => {
     ...workspace,
     averageRating,
     totalRevenue,
-    recentOrders,
-    inboxThreads,
+    recentOrders: [],
+    inboxThreads: [],
     overviewCards,
   };
 };

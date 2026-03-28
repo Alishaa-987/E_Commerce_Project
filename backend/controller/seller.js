@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const router = express.Router();
 const Seller = require("../model/seller");
+const Product = require("../model/product");
 const ErrorHandler = require("../utils/ErrorHandler");
 const { uploadSeller } = require("../multer");
 const sendMail = require("../utils/sendMail");
@@ -10,6 +11,100 @@ const sendToken = require("../utils/jwtToken");
 const jwt = require("jsonwebtoken");
 const catchAsyncError = require("../middleware/catchAsyncError");
 const bcrypt = require("bcryptjs");
+
+const slugify = (value = "") =>
+  value
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+const buildUniqueSellerHandle = async (shopName, excludeId = null) => {
+  const baseHandle = slugify(shopName) || `shop-${Date.now()}`;
+  let handle = baseHandle;
+  let suffix = 1;
+
+  while (
+    await Seller.findOne({
+      handle,
+      ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+    })
+  ) {
+    handle = `${baseHandle}-${suffix}`;
+    suffix += 1;
+  }
+
+  return handle;
+};
+
+const ensureSellerDefaults = async (seller) => {
+  if (!seller) {
+    return null;
+  }
+
+  let shouldSave = false;
+
+  if (!seller.handle) {
+    seller.handle = await buildUniqueSellerHandle(seller.shopName, seller._id);
+    shouldSave = true;
+  }
+
+  if (seller.address === undefined) {
+    seller.address = "";
+    shouldSave = true;
+  }
+
+  if (seller.description === undefined) {
+    seller.description = "";
+    shouldSave = true;
+  }
+
+  if (seller.banner === undefined) {
+    seller.banner = "";
+    shouldSave = true;
+  }
+
+  if (seller.followers === undefined) {
+    seller.followers = 0;
+    shouldSave = true;
+  }
+
+  if (seller.rating === undefined) {
+    seller.rating = 0;
+    shouldSave = true;
+  }
+
+  if (shouldSave) {
+    await seller.save();
+  }
+
+  return seller;
+};
+
+const attachProductCounts = async (sellers) => {
+  const productCounts = await Product.aggregate([
+    {
+      $group: {
+        _id: "$shopId",
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const productCountMap = new Map(
+    productCounts.map((item) => [String(item._id), item.count])
+  );
+
+  return sellers.map((seller) => {
+    const plainSeller = seller.toObject ? seller.toObject() : seller;
+
+    return {
+      ...plainSeller,
+      productCount: productCountMap.get(String(plainSeller._id)) || 0,
+    };
+  });
+};
 
 // Create seller and send activation email
 router.post("/create-seller", uploadSeller.single("file"), async (req, res, next) => {
@@ -72,11 +167,17 @@ router.post("/activation-seller", catchAsyncError(async (req, res, next) => {
 
     await Seller.create({
       shopName,
+      handle: await buildUniqueSellerHandle(shopName),
       email,
       password,
       phone,
+      address: "",
       zip,
+      description: "",
       avatar,
+      banner: "",
+      followers: 0,
+      rating: 0,
     });
 
     res.status(201).json({
@@ -101,7 +202,57 @@ router.post("/login-seller", catchAsyncError(async (req, res, next) => {
   const isValid = await bcrypt.compare(password, seller.password);
   if (!isValid) return next(new ErrorHandler("Invalid password", 400));
 
+  await ensureSellerDefaults(seller);
+  seller.password = undefined;
   sendToken(seller, 200, res);
+}));
+
+router.get("/get-seller-info/:id", catchAsyncError(async (req, res, next) => {
+  const seller = await Seller.findById(req.params.id);
+
+  if (!seller) {
+    return next(new ErrorHandler("Seller not found", 404));
+  }
+
+  await ensureSellerDefaults(seller);
+  const [sellerWithCount] = await attachProductCounts([seller]);
+
+  res.status(200).json({
+    success: true,
+    seller: sellerWithCount,
+  });
+}));
+
+router.get("/get-shop/:handle", catchAsyncError(async (req, res, next) => {
+  const sellers = await Seller.find();
+  const seller = sellers.find(
+    (item) => (item.handle || slugify(item.shopName)) === req.params.handle
+  );
+
+  if (!seller) {
+    return next(new ErrorHandler("Shop not found", 404));
+  }
+
+  await ensureSellerDefaults(seller);
+  const [sellerWithCount] = await attachProductCounts([seller]);
+
+  res.status(200).json({
+    success: true,
+    seller: sellerWithCount,
+  });
+}));
+
+router.get("/get-all-sellers", catchAsyncError(async (req, res) => {
+  const sellers = await Seller.find().sort({ createdAt: -1 });
+  const normalizedSellers = await Promise.all(
+    sellers.map((seller) => ensureSellerDefaults(seller))
+  );
+  const sellersWithCounts = await attachProductCounts(normalizedSellers);
+
+  res.status(200).json({
+    success: true,
+    sellers: sellersWithCounts,
+  });
 }));
 
 const createActivationToken = (seller) => {

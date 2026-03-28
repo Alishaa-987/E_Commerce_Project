@@ -11,9 +11,8 @@ import {
 } from "react-icons/fi";
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
-import { categories } from "../../data/mockData";
 import { useSelector } from "react-redux";
-import { backend_url } from "../../server";
+import { deriveCategories, toAbsoluteAssetUrl } from "../../utils/marketplace";
 
 const Navbar = () => {
   const { cartCount } = useCart();
@@ -25,6 +24,21 @@ const Navbar = () => {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const catRef = useRef(null);
   const { isAuthenticated, user } = useSelector((state) => state.user);
+  const { allProducts } = useSelector((state) => state.products);
+  const categories = deriveCategories(allProducts).slice(0, 8);
+  const isSellerAuthenticated =
+    typeof window !== "undefined" && window.localStorage.getItem("sellerAuth") === "true";
+  const sellerShopName =
+    typeof window !== "undefined" ? window.localStorage.getItem("sellerShopName") || "" : "";
+  const sellerEmail =
+    typeof window !== "undefined" ? window.localStorage.getItem("sellerEmail") || "" : "";
+  const sellerAvatar = toAbsoluteAssetUrl(
+    typeof window !== "undefined" ? window.localStorage.getItem("sellerAvatar") || "" : ""
+  );
+  const userAvatar = toAbsoluteAssetUrl(user?.avatar || "");
+  const sellerAvatarLabel = sellerShopName.trim().charAt(0).toUpperCase() || "S";
+  const userAvatarLabel = (user?.name || "U").trim().charAt(0).toUpperCase();
+  const isAccountLoggedIn = isAuthenticated || isSellerAuthenticated;
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -76,7 +90,7 @@ const Navbar = () => {
                 <div className="absolute top-full left-0 mt-2 w-56 rounded-xl border border-white/10 bg-[#111114] shadow-lg p-2 animate-fade-in">
                   {categories.map((cat) => (
                     <Link
-                      key={cat.id}
+                      key={cat.name}
                       to={`/products?category=${encodeURIComponent(cat.name)}`}
                       className="flex items-center justify-between px-3 py-2 rounded-lg text-sm text-white/60 hover:text-white hover:bg-white/5 transition"
                     >
@@ -117,13 +131,33 @@ const Navbar = () => {
 
             {/* Right actions */}
             <div className="flex items-center gap-1 sm:gap-2">
-              {/* Become Seller */}
-              <Link
-                to="/become-seller"
-                className="hidden lg:inline-flex items-center rounded-full bg-white text-[#0b0b0d] px-4 py-2 text-[11px] font-semibold uppercase tracking-wider hover:-translate-y-0.5 transition"
-              >
-                Become Seller
-              </Link>
+              {/* Seller CTA */}
+              {isSellerAuthenticated ? (
+                <Link
+                  to="/seller/dashboard"
+                  className="hidden lg:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-white transition hover:border-white/20 hover:bg-white/10"
+                >
+                  {sellerAvatar ? (
+                    <img
+                      src={sellerAvatar}
+                      alt={sellerShopName || "Seller profile"}
+                      className="h-7 w-7 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-300/15 text-[10px] text-emerald-200">
+                      {sellerAvatarLabel}
+                    </span>
+                  )}
+                  Seller Dashboard
+                </Link>
+              ) : (
+                <Link
+                  to="/become-seller"
+                  className="hidden lg:inline-flex items-center rounded-full bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#0b0b0d] transition hover:-translate-y-0.5"
+                >
+                  Become Seller
+                </Link>
+              )}
 
               {/* Wishlist */}
               <Link
@@ -154,11 +188,31 @@ const Navbar = () => {
               {/* Profile */}
               {isAuthenticated ? (
                 <Link to="/profile">
-                  <img
-                    src={`${backend_url}${user.avatar}`}
-                    alt=""
-                    className="w-9 h-9 rounded-full object-cover"
-                  />
+                  {userAvatar ? (
+                    <img
+                      src={userAvatar}
+                      alt={user?.name || "Profile"}
+                      className="h-9 w-9 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-semibold text-white/70">
+                      {userAvatarLabel}
+                    </span>
+                  )}
+                </Link>
+              ) : isSellerAuthenticated ? (
+                <Link to="/seller/profile">
+                  {sellerAvatar ? (
+                    <img
+                      src={sellerAvatar}
+                      alt={sellerShopName || "Seller profile"}
+                      className="h-9 w-9 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-semibold text-emerald-200">
+                      {sellerAvatarLabel}
+                    </span>
+                  )}
                 </Link>
               ) : (
                 <Link
@@ -170,7 +224,7 @@ const Navbar = () => {
               )}
 
               {/* Login CTA - desktop */}
-              {!isAuthenticated && (
+              {!isAccountLoggedIn && (
                 <Link
                   to="/login"
                   className="hidden md:block rounded-xl bg-white px-4 py-2 text-[11px] font-semibold text-[#0b0b0d] uppercase tracking-wider transition hover:-translate-y-0.5"
@@ -231,7 +285,9 @@ const Navbar = () => {
               {[
                 { label: "Home", to: "/" },
                 { label: "All Products", to: "/products" },
-                { label: "Become Seller", to: "/become-seller" },
+                ...(isSellerAuthenticated
+                  ? [{ label: "Seller Dashboard", to: "/seller/dashboard" }]
+                  : [{ label: "Become Seller", to: "/become-seller" }]),
                 { label: "Wishlist", to: "/wishlist" },
                 { label: "Cart", to: "/cart" },
                 ...(isAuthenticated
@@ -239,6 +295,9 @@ const Navbar = () => {
                       { label: "My Profile", to: "/profile" },
                       { label: "My Orders", to: "/profile?tab=orders" },
                     ]
+                  : []),
+                ...(!isAuthenticated && isSellerAuthenticated
+                  ? [{ label: "Seller Profile", to: "/seller/profile" }]
                   : []),
               ].map((link) => (
                 <Link
@@ -259,14 +318,46 @@ const Navbar = () => {
                   onClick={() => setIsMenuOpen(false)}
                   className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/80 hover:border-white/30 hover:text-white transition"
                 >
-                  <img
-                    src={`${backend_url}${user.avatar}`}
-                    alt="profile"
-                    className="h-10 w-10 rounded-full object-cover border border-white/10"
-                  />
+                  {userAvatar ? (
+                    <img
+                      src={userAvatar}
+                      alt="profile"
+                      className="h-10 w-10 rounded-full object-cover border border-white/10"
+                    />
+                  ) : (
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-semibold text-white/70">
+                      {userAvatarLabel}
+                    </span>
+                  )}
                   <div className="flex flex-col">
                     <span className="text-white font-semibold text-sm">{user.name || "My profile"}</span>
                     <span className="text-xs text-white/40 truncate">{user.email || "View profile"}</span>
+                  </div>
+                </Link>
+              ) : isSellerAuthenticated ? (
+                <Link
+                  to="/seller/profile"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/80 hover:border-white/30 hover:text-white transition"
+                >
+                  {sellerAvatar ? (
+                    <img
+                      src={sellerAvatar}
+                      alt={sellerShopName || "Seller profile"}
+                      className="h-10 w-10 rounded-full object-cover border border-white/10"
+                    />
+                  ) : (
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-semibold text-emerald-200">
+                      {sellerAvatarLabel}
+                    </span>
+                  )}
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-white">
+                      {sellerShopName || "Seller profile"}
+                    </span>
+                    <span className="text-xs text-white/40 truncate">
+                      {sellerEmail || "Open seller dashboard"}
+                    </span>
                   </div>
                 </Link>
               ) : (

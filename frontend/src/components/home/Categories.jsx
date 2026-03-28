@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 import {
   FiMonitor,
   FiShoppingBag,
@@ -10,7 +11,7 @@ import {
   FiUser,
   FiNavigation,
 } from "react-icons/fi";
-import { categories } from "../../data/mockData";
+import { deriveCategories } from "../../utils/marketplace";
 
 const iconMap = {
   Electronics: FiMonitor,
@@ -35,6 +36,9 @@ const colorMap = {
 };
 
 const Categories = () => {
+  const { allProducts, allProductsLoading } = useSelector((state) => state.products);
+  const categories = deriveCategories(allProducts).slice(0, 8);
+
   return (
     <section className="py-16 bg-[#0b0b0d]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
@@ -52,36 +56,51 @@ const Categories = () => {
             to="/products"
             className="text-xs text-white/50 hover:text-white transition"
           >
-            View all ->
+            View all -
           </Link>
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-          {categories.map((cat) => {
-            const Icon = iconMap[cat.name] || FiGift;
-            const color = colorMap[cat.name] || "text-white/60 bg-white/5 border-white/10";
-            return (
-              <Link
-                key={cat.id}
-                to={`/products?category=${encodeURIComponent(cat.name)}`}
-                className="group flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-[#111114] p-4 hover:border-white/20 hover:-translate-y-1 transition-all duration-300 text-center"
-              >
-                <div
-                  className={`flex h-11 w-11 items-center justify-center rounded-xl border ${color} transition-transform duration-300 group-hover:scale-110`}
+        {allProductsLoading ? (
+          <div className="rounded-3xl border border-white/10 bg-[#111114] px-6 py-12 text-center text-sm text-white/45">
+            Loading categories...
+          </div>
+        ) : categories.length ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+            {categories.map((cat) => {
+              const Icon = iconMap[cat.name] || FiGift;
+              const color =
+                colorMap[cat.name] || "text-white/60 bg-white/5 border-white/10";
+              return (
+                <Link
+                  key={cat.id}
+                  to={`/products?category=${encodeURIComponent(cat.name)}`}
+                  className="group flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-[#111114] p-4 text-center transition-all duration-300 hover:-translate-y-1 hover:border-white/20"
                 >
-                  <Icon size={18} />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-white leading-tight">
-                    {cat.name}
-                  </p>
-                  <p className="text-[10px] text-white/30 mt-0.5">{cat.count}</p>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+                  <div
+                    className={`flex h-11 w-11 items-center justify-center rounded-xl border ${color} transition-transform duration-300 group-hover:scale-110`}
+                  >
+                    <Icon size={18} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium leading-tight text-white">
+                      {cat.name}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-white/30">
+                      {cat.count} products
+                    </p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-3xl border border-white/10 bg-[#111114] px-6 py-12 text-center">
+            <p className="text-lg font-semibold text-white">No categories yet</p>
+            <p className="mt-2 text-sm text-white/45">
+              Categories will appear automatically when backend products are added.
+            </p>
+          </div>
+        )}
       </div>
     </section>
   );

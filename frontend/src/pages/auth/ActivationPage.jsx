@@ -1,13 +1,16 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import { server } from "../../server";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
+import { loadUser } from "../../redux/actions/user";
 
 function ActivationPage() {
   const { activation_token } = useParams();
   const [error, setError] = useState(false);
+  const dispatch = useDispatch();
 
   useEffect(() => {
     if (activation_token) {
@@ -15,14 +18,18 @@ function ActivationPage() {
         try {
           await axios.post(`${server}/user/activation`, {
             activation_token,
+          }, {
+            withCredentials: true,
           });
+          localStorage.setItem("userAuth", "true");
+          await dispatch(loadUser());
         } catch (error) {
           setError(true);
         }
       };
       activationEmail();
     }
-  }, [activation_token]);
+  }, [activation_token, dispatch]);
   return (
     <div className="min-h-screen bg-[#0b0b0d] text-white font-Poppins flex flex-col">
       <Navbar />

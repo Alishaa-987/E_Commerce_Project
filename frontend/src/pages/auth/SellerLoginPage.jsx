@@ -35,6 +35,11 @@ const SellerLoginPage = () => {
       if (data?.user?.shopName) {
         localStorage.setItem("sellerShopName", data.user.shopName);
       }
+      if (data?.user?.handle) {
+        localStorage.setItem("sellerHandle", data.user.handle);
+      } else {
+        localStorage.removeItem("sellerHandle");
+      }
       if (data?.user?.avatar) {
         localStorage.setItem("sellerAvatar", data.user.avatar);
       } else {

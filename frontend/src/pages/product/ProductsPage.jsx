@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FiSearch, FiFilter, FiX } from "react-icons/fi";
+import { useSelector } from "react-redux";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import ProductCard from "../../components/cards/ProductCard";
-import { categories } from "../../data/mockData";
-import { getCatalogProducts } from "../../data/catalog";
+import { deriveCategories } from "../../utils/marketplace";
 
 const sortOptions = [
   { label: "Newest", value: "new" },
@@ -20,10 +20,11 @@ const ProductsPage = () => {
   const [sort, setSort] = useState("new");
   const [priceMax, setPriceMax] = useState(600);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { allProducts, allProductsLoading } = useSelector((state) => state.products);
 
   const activeCategory = searchParams.get("category") || "";
   const searchQuery = searchParams.get("search") || "";
-  const allProducts = useMemo(() => getCatalogProducts(), []);
+  const categories = useMemo(() => deriveCategories(allProducts), [allProducts]);
 
   const setCategory = (cat) => {
     const params = new URLSearchParams(searchParams);
@@ -203,7 +204,11 @@ const ProductsPage = () => {
 
           {/* Product grid */}
           <div className="flex-1">
-            {filteredProducts.length === 0 ? (
+            {allProductsLoading ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <p className="text-white/40 text-lg font-Playfair">Loading products</p>
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 text-center">
                 <FiSearch size={40} className="text-white/20 mb-4" />
                 <p className="text-white/40 text-lg font-Playfair">

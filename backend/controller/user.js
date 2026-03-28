@@ -174,18 +174,10 @@ router.get("/logout", (req, res) => {
 // load user
 router.get("/getUser",
      isAuthenticated, 
-     catchAsyncError(async (req, res, next) => {
-    try{
-        const user = await User.findById(req.user.id);
-        if(!user){
-            return next(new ErrorHandler("User not found", 404));
-        }
+     catchAsyncError(async (req, res) => {
         res.status(200).json({
             success: true,
-            user,
+            user: req.user,
         });
-    }catch(error){
-        return next(new ErrorHandler(error.message, 500));    
-    }
 }));
 module.exports = router;

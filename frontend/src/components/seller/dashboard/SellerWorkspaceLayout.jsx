@@ -1,22 +1,72 @@
-import React, { useState } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo } from "react";
+import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { clearSellerSession } from "../sellerSession";
 import {
   getSellerActiveNavKey,
   getSellerDashboardData,
 } from "../sellerWorkspace";
+import SellerPageLoader from "../SellerPageLoader";
 import SellerDashboardHeader from "./SellerDashboardHeader";
 import SellerDashboardSidebar from "./SellerDashboardSidebar";
+import { loadSellerById } from "../../../redux/actions/seller";
+import { getAllProductsShop } from "../../../redux/actions/product";
+import { getAllEventsShop } from "../../../redux/actions/event";
 
 const SellerWorkspaceLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [dashboardData, setDashboardData] = useState(() =>
-    getSellerDashboardData(6)
+  const dispatch = useDispatch();
+  const sellerId =
+    typeof window !== "undefined" ? window.localStorage.getItem("sellerId") : null;
+  const storedSellerEmail =
+    typeof window !== "undefined" ? window.localStorage.getItem("sellerEmail") || "" : "";
+  const {
+    currentSeller,
+    currentSellerLoading,
+    currentSellerError,
+  } = useSelector((state) => state.seller);
+  const { sellerProducts, sellerProductsLoading } = useSelector((state) => state.products);
+  const { sellerEvents, sellerEventsLoading } = useSelector((state) => state.events);
+  const dashboardData = useMemo(
+    () =>
+      getSellerDashboardData({
+        sellerShop: currentSeller,
+        sellerProducts,
+        sellerEvents,
+        storedEmail: storedSellerEmail,
+        sellerAvatar: currentSeller?.avatar,
+      }),
+    [currentSeller, sellerProducts, sellerEvents, storedSellerEmail]
   );
 
   const { storedEmail, sellerShop, sellerAvatar } = dashboardData;
   const activeSection = getSellerActiveNavKey(location.pathname);
+
+  useEffect(() => {
+    if (!sellerId) {
+      return;
+    }
+
+    dispatch(loadSellerById(sellerId));
+    dispatch(getAllProductsShop(sellerId));
+    dispatch(getAllEventsShop(sellerId));
+  }, [dispatch, sellerId]);
+
+  useEffect(() => {
+    if (!sellerId || currentSeller || !currentSellerError) {
+      return;
+    }
+
+    const normalizedError = currentSellerError.toLowerCase();
+    if (
+      normalizedError.includes("seller not found") ||
+      normalizedError.includes("cast to objectid failed")
+    ) {
+      clearSellerSession();
+      navigate("/seller-login", { replace: true });
+    }
+  }, [currentSeller, currentSellerError, navigate, sellerId]);
 
   const handleLogout = () => {
     clearSellerSession();
@@ -24,8 +74,31 @@ const SellerWorkspaceLayout = () => {
   };
 
   const refreshDashboardData = () => {
-    setDashboardData(getSellerDashboardData(6));
+    if (!sellerId) {
+      return;
+    }
+
+    dispatch(loadSellerById(sellerId));
+    dispatch(getAllProductsShop(sellerId));
+    dispatch(getAllEventsShop(sellerId));
   };
+
+  if (!sellerId) {
+    clearSellerSession();
+    return <Navigate to="/seller-login" replace />;
+  }
+
+  if (!currentSeller && !currentSellerError) {
+    return <SellerPageLoader label="Opening seller workspace" />;
+  }
+
+  if ((currentSellerLoading && !currentSeller) || sellerProductsLoading || sellerEventsLoading) {
+    return <SellerPageLoader label="Opening seller workspace" />;
+  }
+
+  if (!sellerShop || currentSellerError) {
+    return <SellerPageLoader label={currentSellerError || "Loading seller workspace"} />;
+  }
 
   return (
     <div className="min-h-screen bg-[#0b0b0d] text-white font-Poppins">

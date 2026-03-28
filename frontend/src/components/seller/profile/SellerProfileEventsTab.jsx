@@ -7,6 +7,20 @@ const statusClasses = {
 };
 
 const SellerProfileEventsTab = ({ runningEvents }) => {
+  if (!runningEvents.length) {
+    return (
+      <div className="rounded-[28px] border border-white/10 bg-[#111114] p-8 text-center shadow-[0_24px_70px_rgba(0,0,0,0.4)]">
+        <p className="text-[10px] uppercase tracking-[0.28em] text-white/35">Running Events</p>
+        <h3 className="mt-3 text-2xl font-Playfair font-semibold text-white">
+          No events yet
+        </h3>
+        <p className="mt-3 text-sm text-white/50">
+          Create your first event to see it appear here with a live status and schedule.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-5 xl:grid-cols-3">
       {runningEvents.map((event) => (

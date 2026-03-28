@@ -9,6 +9,20 @@ const statusStyles = {
 };
 
 const SellerDashboardOrdersPanel = ({ recentOrders }) => {
+  if (!recentOrders.length) {
+    return (
+      <div className="rounded-[28px] border border-white/10 bg-[#111114] p-8 text-center shadow-[0_24px_70px_rgba(0,0,0,0.45)] lg:p-7">
+        <p className="text-[10px] uppercase tracking-[0.35em] text-white/35">All Orders</p>
+        <h2 className="mt-3 text-2xl font-Playfair font-semibold text-white">
+          No orders yet
+        </h2>
+        <p className="mt-3 text-sm text-white/50">
+          Real order data has not been wired into the backend yet, so this screen stays empty instead of showing mock orders.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-[28px] border border-white/10 bg-[#111114] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.45)] lg:p-7">
       <div className="mb-5">

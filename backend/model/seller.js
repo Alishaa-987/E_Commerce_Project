@@ -9,6 +9,12 @@ const sellerSchema = new mongoose.Schema(
       required: [true, "Please enter your shop name"],
       trim: true,
     },
+    handle: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      default: "",
+    },
     email: {
       type: String,
       required: [true, "Please enter your email"],
@@ -26,13 +32,33 @@ const sellerSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    address: {
+      type: String,
+      default: "",
+    },
     zip: {
+      type: String,
+      default: "",
+    },
+    description: {
       type: String,
       default: "",
     },
     avatar: {
       type: String,
       default: "",
+    },
+    banner: {
+      type: String,
+      default: "",
+    },
+    followers: {
+      type: Number,
+      default: 0,
+    },
+    rating: {
+      type: Number,
+      default: 0,
     },
   },
   {

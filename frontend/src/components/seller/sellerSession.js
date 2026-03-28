@@ -1,5 +1,5 @@
 export const clearSellerSession = () => {
-  ["sellerAuth", "sellerEmail", "sellerShopName", "sellerAvatar", "sellerId"].forEach(
+  ["sellerAuth", "sellerEmail", "sellerShopName", "sellerAvatar", "sellerId", "sellerHandle"].forEach(
     (key) => localStorage.removeItem(key)
   );
 };

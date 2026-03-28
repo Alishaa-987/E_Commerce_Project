@@ -1,6 +1,7 @@
-import React, { useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { FiArrowLeft } from "react-icons/fi";
+import { useDispatch, useSelector } from "react-redux";
 import SellerPageLoader from "../../components/seller/SellerPageLoader";
 import {
   getSellerAverageRating,
@@ -8,17 +9,68 @@ import {
   sellerProfileTabs,
 } from "../../components/seller/sellerWorkspace";
 import { clearSellerSession } from "../../components/seller/sellerSession";
-import useSellerViewLoader from "../../components/seller/useSellerViewLoader";
 import SellerProfileEventsTab from "../../components/seller/profile/SellerProfileEventsTab";
 import SellerProfileProductsTab from "../../components/seller/profile/SellerProfileProductsTab";
 import SellerProfileReviewsTab from "../../components/seller/profile/SellerProfileReviewsTab";
 import SellerProfileSidebar from "../../components/seller/profile/SellerProfileSidebar";
 import SellerProfileTabs from "../../components/seller/profile/SellerProfileTabs";
+import { loadSellerById } from "../../redux/actions/seller";
+import { getAllProductsShop } from "../../redux/actions/product";
+import { getAllEventsShop } from "../../redux/actions/event";
 
 const SellerProfilePage = () => {
   const navigate = useNavigate();
-  const profileData = useMemo(() => getSellerWorkspaceData(8), []);
-  const { activeKey, isLoading, changeView } = useSellerViewLoader("products", 280);
+  const dispatch = useDispatch();
+  const sellerId =
+    typeof window !== "undefined" ? window.localStorage.getItem("sellerId") : null;
+  const storedSellerEmail =
+    typeof window !== "undefined" ? window.localStorage.getItem("sellerEmail") || "" : "";
+  const {
+    currentSeller,
+    currentSellerLoading,
+    currentSellerError,
+  } = useSelector((state) => state.seller);
+  const { sellerProducts: sellerProductsState, sellerProductsLoading } = useSelector(
+    (state) => state.products
+  );
+  const { sellerEvents, sellerEventsLoading } = useSelector((state) => state.events);
+  const profileData = useMemo(
+    () =>
+      getSellerWorkspaceData({
+        sellerShop: currentSeller,
+        sellerProducts: sellerProductsState,
+        sellerEvents,
+        storedEmail: storedSellerEmail,
+        sellerAvatar: currentSeller?.avatar,
+      }),
+    [currentSeller, sellerProductsState, sellerEvents, storedSellerEmail]
+  );
+  const [activeKey, setActiveKey] = useState("products");
+
+  useEffect(() => {
+    if (!sellerId) {
+      return;
+    }
+
+    dispatch(loadSellerById(sellerId));
+    dispatch(getAllProductsShop(sellerId));
+    dispatch(getAllEventsShop(sellerId));
+  }, [dispatch, sellerId]);
+
+  useEffect(() => {
+    if (!sellerId || currentSeller || !currentSellerError) {
+      return;
+    }
+
+    const normalizedError = currentSellerError.toLowerCase();
+    if (
+      normalizedError.includes("seller not found") ||
+      normalizedError.includes("cast to objectid failed")
+    ) {
+      clearSellerSession();
+      navigate("/seller-login", { replace: true });
+    }
+  }, [currentSeller, currentSellerError, navigate, sellerId]);
 
   const {
     storedEmail,
@@ -37,6 +89,27 @@ const SellerProfilePage = () => {
     clearSellerSession();
     navigate("/seller-login", { replace: true });
   };
+
+  if (!sellerId) {
+    clearSellerSession();
+    return <Navigate to="/seller-login" replace />;
+  }
+
+  if (!currentSeller && !currentSellerError) {
+    return <SellerPageLoader label="Loading shop details" />;
+  }
+
+  if (
+    (currentSellerLoading && !currentSeller) ||
+    sellerProductsLoading ||
+    sellerEventsLoading
+  ) {
+    return <SellerPageLoader label="Loading shop details" />;
+  }
+
+  if (!sellerShop || currentSellerError) {
+    return <SellerPageLoader label={currentSellerError || "Loading shop details"} />;
+  }
 
   return (
     <div className="min-h-screen bg-[#0b0b0d] text-white font-Poppins">
@@ -88,14 +161,12 @@ const SellerProfilePage = () => {
                 <SellerProfileTabs
                   tabs={sellerProfileTabs}
                   activeTab={activeKey}
-                  onTabChange={changeView}
+                  onTabChange={setActiveKey}
                 />
               </div>
             </div>
 
-            {isLoading ? (
-              <SellerPageLoader fullScreen={false} label="Loading shop details" />
-            ) : activeKey === "events" ? (
+            {activeKey === "events" ? (
               <SellerProfileEventsTab runningEvents={runningEvents} />
             ) : activeKey === "reviews" ? (
               <SellerProfileReviewsTab

@@ -1,10 +1,25 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { FiArrowRight } from "react-icons/fi";
+import { useSelector } from "react-redux";
 import ShopCard from "../cards/ShopCard";
-import { shops } from "../../data/mockData";
 
 const FeaturedShops = () => {
+  const { allShops, allShopsLoading } = useSelector((state) => state.seller);
+  const featuredShops = [...allShops]
+    .sort((a, b) => {
+      if (Number(b.products || 0) !== Number(a.products || 0)) {
+        return Number(b.products || 0) - Number(a.products || 0);
+      }
+
+      if (Number(b.followers || 0) !== Number(a.followers || 0)) {
+        return Number(b.followers || 0) - Number(a.followers || 0);
+      }
+
+      return Number(b.rating || 0) - Number(a.rating || 0);
+    })
+    .slice(0, 6);
+
   return (
     <section className="py-16 bg-[#0b0b0d]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
@@ -26,12 +41,24 @@ const FeaturedShops = () => {
           </Link>
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {shops.slice(0, 6).map((shop) => (
-            <ShopCard key={shop.id} shop={shop} />
-          ))}
-        </div>
+        {allShopsLoading ? (
+          <div className="rounded-3xl border border-white/10 bg-[#111114] px-6 py-12 text-center text-sm text-white/45">
+            Loading shops...
+          </div>
+        ) : featuredShops.length ? (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {featuredShops.map((shop) => (
+              <ShopCard key={shop.id} shop={shop} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-3xl border border-white/10 bg-[#111114] px-6 py-12 text-center">
+            <p className="text-lg font-semibold text-white">No shops live yet</p>
+            <p className="mt-2 text-sm text-white/45">
+              Seller storefronts from the backend will appear here as soon as they are created.
+            </p>
+          </div>
+        )}
       </div>
     </section>
   );

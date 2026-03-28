@@ -9,6 +9,8 @@ const SellerDashboardSidebar = ({
   storedEmail,
   activeSection,
 }) => {
+  const avatarLabel = sellerShop?.name?.trim()?.charAt(0)?.toUpperCase() || "S";
+
   return (
     <aside className="hidden w-[270px] shrink-0 flex-col border-r border-white/10 bg-[#0f0f12]/85 backdrop-blur-xl lg:flex">
       <div className="border-b border-white/10 px-6 pb-5 pt-6">
@@ -46,11 +48,17 @@ const SellerDashboardSidebar = ({
           className="block rounded-[26px] border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/20"
         >
           <div className="flex items-center gap-3">
-            <img
-              src={sellerAvatar}
-              alt={sellerShop.name}
-              className="h-12 w-12 rounded-2xl object-cover"
-            />
+            {sellerAvatar ? (
+              <img
+                src={sellerAvatar}
+                alt={sellerShop.name}
+                className="h-12 w-12 rounded-2xl object-cover"
+              />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-300/15 text-sm font-semibold text-emerald-200">
+                {avatarLabel}
+              </div>
+            )}
             <div>
               <p className="text-sm font-semibold text-white">{sellerShop.name}</p>
               <p className="text-xs text-white/40">{storedEmail}</p>

@@ -40,6 +40,7 @@ const LoginPage = () => {
       .then(async () => {
         setMessage("Login successful!");
         setMessageType("success");
+        localStorage.setItem("userAuth", "true");
         await dispatch(loadUser());
         // navigate(redirectTo, { replace: true });
       })

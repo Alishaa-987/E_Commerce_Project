@@ -1,6 +1,20 @@
 import React from "react";
 
 const SellerDashboardInboxPanel = ({ inboxThreads }) => {
+  if (!inboxThreads.length) {
+    return (
+      <div className="rounded-[28px] border border-white/10 bg-[#111114] p-8 text-center shadow-[0_24px_70px_rgba(0,0,0,0.45)] lg:p-7">
+        <p className="text-[10px] uppercase tracking-[0.35em] text-white/35">Shop Inbox</p>
+        <h2 className="mt-3 text-2xl font-Playfair font-semibold text-white">
+          No inbox threads yet
+        </h2>
+        <p className="mt-3 text-sm text-white/50">
+          Buyer conversation data is not connected yet, so this area stays empty instead of showing fake messages.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-[28px] border border-white/10 bg-[#111114] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.45)] lg:p-7">
       <div className="mb-5">

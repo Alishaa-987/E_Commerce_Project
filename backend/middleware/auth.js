@@ -14,6 +14,12 @@ exports.isAuthenticated = catchAsyncError(async (req, res, next) => {
   }
 
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
-  req.user = await User.findById(decoded.id);
+  const user = await User.findById(decoded.id);
+
+  if (!user) {
+    return next(new ErrorHandler("Your session is no longer valid. Please login again.", 401));
+  }
+
+  req.user = user;
   next();
 });
