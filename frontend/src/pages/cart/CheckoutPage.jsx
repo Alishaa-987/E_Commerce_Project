@@ -1,25 +1,106 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { FiCheck, FiArrowLeft, FiLock } from "react-icons/fi";
+import { useDispatch, useSelector } from "react-redux";
+import axios from "axios";
+import AddressModal from "../../components/user/AddressModal";
+import SavedAddressRow from "../../components/user/SavedAddressRow";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import { useCart } from "../../context/CartContext";
+import { addUserAddress } from "../../redux/actions/user";
+import { server } from "../../server";
 
 const inputClass =
   "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/10 transition";
 
+const getCartItemId = (item = {}) => String(item?.id || item?._id || "").trim();
+const splitUserName = (name = "") =>
+  String(name)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+const fillContactFields = (currentForm, contactDefaults) => ({
+  ...currentForm,
+  firstName: contactDefaults.firstName || currentForm.firstName || "",
+  lastName: contactDefaults.lastName || currentForm.lastName || "",
+  email: contactDefaults.email || currentForm.email || "",
+  phone: contactDefaults.phone || currentForm.phone || "",
+});
+const fillAddressFields = (currentForm, address, contactDefaults) => {
+  const normalizedAddress = address?.address || address || {};
+
+  return {
+    ...fillContactFields(currentForm, contactDefaults),
+    firstName:
+      normalizedAddress?.firstName ||
+      address?.firstName ||
+      contactDefaults.firstName ||
+      "",
+    lastName:
+      normalizedAddress?.lastName ||
+      address?.lastName ||
+      contactDefaults.lastName ||
+      currentForm.lastName ||
+      "",
+    phone:
+      normalizedAddress?.phone ||
+      address?.phone ||
+      contactDefaults.phone ||
+      currentForm.phone ||
+      "",
+    address1:
+      normalizedAddress?.address1 ||
+      normalizedAddress?.address ||
+      address?.address1 ||
+      address?.address ||
+      "",
+    address2: normalizedAddress?.address2 || "",
+    city:
+      normalizedAddress?.city ||
+      normalizedAddress?.state ||
+      address?.city ||
+      address?.state ||
+      "",
+    country:
+      normalizedAddress?.country ||
+      normalizedAddress?.countryName ||
+      address?.country ||
+      address?.countryName ||
+      "",
+    countryCode:
+      normalizedAddress?.countryCode ||
+      normalizedAddress?.country_iso_code ||
+      address?.countryCode ||
+      address?.country_iso_code ||
+      "",
+    zipCode:
+      normalizedAddress?.zipCode ||
+      normalizedAddress?.postalCode ||
+      normalizedAddress?.zip ||
+      address?.zipCode ||
+      address?.postalCode ||
+      address?.zip ||
+      "",
+  };
+};
+
 const CheckoutPage = () => {
+  const dispatch = useDispatch();
   const { cartItems, cartTotal, clearCart } = useCart();
+  const { user, addressActionLoading } = useSelector((state) => state.user);
   const [step, setStep] = useState(1); // 1: address, 2: payment, 3: success
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
     email: "",
     phone: "",
-    address: "",
+    address1: "",
+    address2: "",
     city: "",
     country: "",
-    zip: "",
+    countryCode: "",
+    zipCode: "",
     cardNumber: "",
     expiry: "",
     cvv: "",
@@ -28,12 +109,186 @@ const CheckoutPage = () => {
   const [paymentMethod, setPaymentMethod] = useState("card"); // card | paypal | cod
   const [error, setError] = useState("");
   const [coupon, setCoupon] = useState("");
+  const [selectedAddressId, setSelectedAddressId] = useState("");
+  const [showSavedAddresses, setShowSavedAddresses] = useState(false);
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [addressMessage, setAddressMessage] = useState("");
+  const [couponFeedback, setCouponFeedback] = useState("");
+  const [couponError, setCouponError] = useState("");
+  const [couponDetails, setCouponDetails] = useState(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [confirmedTotal, setConfirmedTotal] = useState(0);
+
+  const savedAddresses = useMemo(() => user?.addresses || [], [user?.addresses]);
+  const contactDefaults = useMemo(() => {
+    const userNameParts = splitUserName(user?.name);
+
+    return {
+      firstName: userNameParts[0] || "",
+      lastName: userNameParts.slice(1).join(" "),
+      email: user?.email || "",
+      phone: user?.phoneNumber || "",
+    };
+  }, [user?.email, user?.name, user?.phoneNumber]);
 
   const shipping = cartTotal > 80 ? 0 : 9.99;
-  const total = cartTotal + shipping;
+  const couponDiscount = Number(couponDetails?.discountAmount || 0);
+  const total = Math.max(cartTotal + shipping - couponDiscount, 0);
+
+  useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      firstName: current.firstName || contactDefaults.firstName,
+      lastName: current.lastName || contactDefaults.lastName,
+      email: current.email || contactDefaults.email,
+      phone: current.phone || contactDefaults.phone,
+    }));
+  }, [contactDefaults.firstName, contactDefaults.lastName, contactDefaults.email, contactDefaults.phone]);
 
   const handleChange = (e) =>
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+
+  const handleCouponChange = (event) => {
+    const nextCoupon = event.target.value;
+
+    setCoupon(nextCoupon);
+    setCouponError("");
+
+    if (couponDetails && nextCoupon.trim().toUpperCase() !== couponDetails.name) {
+      setCouponDetails(null);
+      setCouponFeedback("");
+    }
+  };
+
+  const applySavedAddress = (address) => {
+    setSelectedAddressId(address?._id || "");
+    setForm((current) => fillAddressFields(current, address, contactDefaults));
+    setShowSavedAddresses(false);
+    setAddressMessage("Address applied.");
+  };
+
+  useEffect(() => {
+    if (!addressMessage) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setAddressMessage("");
+    }, 2500);
+
+    return () => window.clearTimeout(timer);
+  }, [addressMessage]);
+
+  useEffect(() => {
+    if (!couponFeedback) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setCouponFeedback("");
+    }, 2500);
+
+    return () => window.clearTimeout(timer);
+  }, [couponFeedback]);
+
+  useEffect(() => {
+    if (!couponError) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setCouponError("");
+    }, 3000);
+
+    return () => window.clearTimeout(timer);
+  }, [couponError]);
+
+  const handleCreateAddress = async (addressData) => {
+    const result = await dispatch(addUserAddress(addressData));
+
+    if (result?.success) {
+      const nextAddresses = result.user?.addresses || [];
+      const createdAddress =
+        (addressData.addressType === "Default"
+          ? nextAddresses.find((address) => address.isDefault)
+          : [...nextAddresses].reverse().find(
+              (address) =>
+                address.countryCode === addressData.countryCode &&
+                address.city === addressData.city &&
+                address.address1 === addressData.address1 &&
+                address.zipCode === addressData.zipCode
+            )) || nextAddresses[nextAddresses.length - 1];
+      if (createdAddress) {
+        applySavedAddress(createdAddress);
+      }
+      setAddressMessage("Address saved.");
+    }
+
+    return result;
+  };
+
+  const handleApplyCoupon = async () => {
+    const normalizedCoupon = coupon.trim().toUpperCase();
+
+    if (!normalizedCoupon) {
+      setCouponDetails(null);
+      setCouponFeedback("");
+      setCouponError("Please enter a coupon code.");
+      return;
+    }
+
+    try {
+      setCouponLoading(true);
+      setCouponError("");
+      setCouponFeedback("");
+
+      const { data } = await axios.post(
+        `${server}/coupon/validate-coupon`,
+        {
+          name: normalizedCoupon,
+          cartItems,
+        },
+        {
+          withCredentials: true,
+        }
+      );
+
+      setCoupon(normalizedCoupon);
+      setCouponDetails({
+        ...data.coupon,
+        discountAmount: data.discountAmount,
+      });
+      setCouponFeedback("Coupon applied.");
+    } catch (couponApplyError) {
+      setCouponDetails(null);
+      setCouponFeedback("");
+      setCouponError(
+        couponApplyError.response?.data?.message || "Coupon code could not be applied."
+      );
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleContinueToPayment = () => {
+    const missing = [];
+    if (!form.firstName.trim()) missing.push("first name");
+    if (!form.lastName.trim()) missing.push("last name");
+    if (!form.email.trim()) missing.push("email");
+    if (!form.phone.trim()) missing.push("phone");
+    if (!form.address1.trim()) missing.push("address");
+    if (!form.city.trim()) missing.push("city");
+    if (!form.country.trim()) missing.push("country");
+    if (!form.zipCode.trim()) missing.push("zip code");
+    
+    if (missing.length > 0) {
+      setError(`Please complete: ${missing.join(", ")}`);
+      return;
+    }
+
+    setError("");
+    setStep(2);
+  };
 
   const handleOrder = () => {
     if (paymentMethod === "card") {
@@ -43,6 +298,7 @@ const CheckoutPage = () => {
       }
     }
     setError("");
+    setConfirmedTotal(total);
     clearCart();
     setStep(3);
   };
@@ -66,7 +322,7 @@ const CheckoutPage = () => {
               <p className="text-xs text-white/30 mb-3 uppercase tracking-widest">Order summary</p>
               <div className="flex justify-between text-sm text-white/60 mb-2">
                 <span>Total paid</span>
-                <span className="text-white font-semibold">${total.toFixed(2)}</span>
+                <span className="text-white font-semibold">${confirmedTotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm text-white/60">
                 <span>Estimated delivery</span>
@@ -147,9 +403,15 @@ const CheckoutPage = () => {
           <div className="lg:col-span-2">
             {step === 1 && (
               <div className="rounded-2xl border border-white/10 bg-[#111114] p-6 sm:p-8 space-y-5 animate-fade-up">
-                <p className="text-[10px] uppercase tracking-widest text-white/30 mb-2">
-                  Shipping Address
-                </p>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-white/30 mb-2">
+                    Shipping Address
+                  </p>
+                  <h2 className="text-xl font-Playfair font-semibold text-white">
+                    Delivery details
+                  </h2>
+                </div>
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <label className="text-xs text-white/50">First Name</label>
@@ -169,8 +431,12 @@ const CheckoutPage = () => {
                   <input name="phone" value={form.phone} onChange={handleChange} placeholder="+1 (555) 000-0000" className={inputClass} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-white/50">Street Address</label>
-                  <input name="address" value={form.address} onChange={handleChange} placeholder="123 Main Street" className={inputClass} />
+                  <label className="text-xs text-white/50">Address 1</label>
+                  <input name="address1" value={form.address1} onChange={handleChange} placeholder="851 SE 6th Avenue #101" className={inputClass} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-white/50">Address 2</label>
+                  <input name="address2" value={form.address2} onChange={handleChange} placeholder="Delray Beach" className={inputClass} />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-1.5">
@@ -179,15 +445,63 @@ const CheckoutPage = () => {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs text-white/50">ZIP Code</label>
-                    <input name="zip" value={form.zip} onChange={handleChange} placeholder="10001" className={inputClass} />
+                    <input name="zipCode" value={form.zipCode} onChange={handleChange} placeholder="10001" className={inputClass} />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs text-white/50">Country</label>
                     <input name="country" value={form.country} onChange={handleChange} placeholder="USA" className={inputClass} />
                   </div>
                 </div>
+                {addressMessage ? (
+                  <p className="text-sm text-emerald-300">{addressMessage}</p>
+                ) : null}
+                <div className="flex flex-wrap gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddressModalOpen(true)}
+                    className="rounded-xl bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#0b0b0d] transition hover:-translate-y-0.5"
+                  >
+                    Add address
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowSavedAddresses((current) => !current)}
+                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-white/75 transition hover:border-white/25 hover:text-white"
+                  >
+                    Choose from saved address
+                  </button>
+                </div>
+                {showSavedAddresses ? (
+                  <div className="space-y-3 rounded-2xl border border-white/10 bg-[#0f0f12] p-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs uppercase tracking-[0.22em] text-white/35">
+                        Saved addresses
+                      </p>
+                      <span className="text-xs text-white/35">
+                        {savedAddresses.length} saved
+                      </span>
+                    </div>
+                    {savedAddresses.length ? (
+                      savedAddresses.map((address) => (
+                        <SavedAddressRow
+                          key={address._id}
+                          address={address}
+                          isSelected={selectedAddressId === address._id}
+                          showPrimaryAction
+                          primaryActionLabel="Use address"
+                          onSelect={applySavedAddress}
+                        />
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-white/55">
+                        No saved addresses yet. Add one and it will appear here.
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+                {error ? <p className="text-sm text-red-300">{error}</p> : null}
                 <button
-                  onClick={() => setStep(2)}
+                  onClick={handleContinueToPayment}
                   className="w-full rounded-xl bg-white py-3 text-sm font-semibold text-[#0b0b0d] transition hover:-translate-y-0.5 mt-2"
                 >
                   Continue to Payment ->
@@ -269,8 +583,8 @@ const CheckoutPage = () => {
                       <div className="space-y-1.5">
                         <label className="text-xs text-white/50">Billing Address</label>
                         <input
-                          name="address"
-                          value={form.address}
+                          name="address1"
+                          value={form.address1}
                           onChange={handleChange}
                           placeholder="123 Main Street"
                           className={inputClass}
@@ -328,13 +642,18 @@ const CheckoutPage = () => {
               </p>
               <div className="space-y-3 mb-4">
                 {cartItems.map((item) => (
-                  <div key={item.id} className="flex items-center gap-3">
+                  <div key={getCartItemId(item) || item.name} className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-lg overflow-hidden shrink-0">
                       <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-white/70 truncate">{item.name}</p>
                       <p className="text-[10px] text-white/30">x{item.qty}</p>
+                      {couponDetails?.selectedProductId === getCartItemId(item) ? (
+                        <p className="text-[10px] text-emerald-300">
+                          {couponDetails.name} applied on this item
+                        </p>
+                      ) : null}
                     </div>
                     <span className="text-xs font-medium text-white shrink-0">
                       ${(item.price * item.qty).toFixed(2)}
@@ -353,6 +672,14 @@ const CheckoutPage = () => {
                     {shipping === 0 ? "Free" : `$${shipping.toFixed(2)}`}
                   </span>
                 </div>
+                {couponDetails ? (
+                  <div className="flex justify-between text-emerald-200">
+                    <span>
+                      {couponDetails.name} on {couponDetails.selectedProductName}
+                    </span>
+                    <span>- ${couponDiscount.toFixed(2)}</span>
+                  </div>
+                ) : null}
                 <div className="flex justify-between font-semibold text-white pt-1 border-t border-white/10">
                   <span>Total</span>
                   <span>${total.toFixed(2)}</span>
@@ -361,13 +688,24 @@ const CheckoutPage = () => {
               <div className="mt-4 space-y-2">
                 <input
                   value={coupon}
-                  onChange={(e) => setCoupon(e.target.value)}
+                  onChange={handleCouponChange}
                   placeholder="Coupon code"
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/10 transition"
                 />
-                <button className="w-full rounded-xl border border-pink-300 text-pink-200 py-3 text-sm font-semibold hover:bg-pink-300/10 transition">
-                  Apply code
+                <button
+                  type="button"
+                  onClick={handleApplyCoupon}
+                  disabled={couponLoading}
+                  className="w-full rounded-xl border border-pink-300 text-pink-200 py-3 text-sm font-semibold hover:bg-pink-300/10 transition disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {couponLoading ? "Applying..." : "Apply code"}
                 </button>
+                {couponError ? (
+                  <p className="text-sm text-rose-300">{couponError}</p>
+                ) : null}
+                {!couponError && couponFeedback ? (
+                  <p className="text-sm text-emerald-300">{couponFeedback}</p>
+                ) : null}
               </div>
             </div>
           </div>
@@ -375,6 +713,12 @@ const CheckoutPage = () => {
       </div>
 
       <Footer />
+      <AddressModal
+        isOpen={isAddressModalOpen}
+        isSubmitting={addressActionLoading}
+        onClose={() => setIsAddressModalOpen(false)}
+        onSubmitAddress={handleCreateAddress}
+      />
     </div>
   );
 };

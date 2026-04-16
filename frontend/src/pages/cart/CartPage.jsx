@@ -10,6 +10,7 @@ import {
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import { useCart } from "../../context/CartContext";
+import { resolveAvailableStock } from "../../utils/marketplace";
 
 const CartPage = () => {
   const { cartItems, updateQty, removeFromCart, cartTotal, clearCart } = useCart();
@@ -51,7 +52,12 @@ const CartPage = () => {
           <div className="grid gap-10 lg:grid-cols-3">
             {/* Cart items */}
             <div className="lg:col-span-2 space-y-4">
-              {cartItems.map((item) => (
+              {cartItems.map((item) => {
+                const stock = resolveAvailableStock(item);
+                const soldOut = stock <= 0;
+                const limitReached = !soldOut && item.qty >= stock;
+
+                return (
                 <div
                   key={item.id}
                   className="flex gap-4 rounded-2xl border border-white/10 bg-[#111114] p-4 sm:p-5"
@@ -103,7 +109,12 @@ const CartPage = () => {
                         </span>
                         <button
                           onClick={() => updateQty(item.id, item.qty + 1)}
-                          className="flex h-8 w-8 items-center justify-center text-white/50 hover:text-white hover:bg-white/5 transition"
+                          disabled={soldOut || limitReached}
+                          className={`flex h-8 w-8 items-center justify-center transition ${
+                            soldOut || limitReached
+                              ? "cursor-not-allowed text-white/20"
+                              : "text-white/50 hover:text-white hover:bg-white/5"
+                          }`}
                         >
                           <FiPlus size={12} />
                         </button>
@@ -119,11 +130,20 @@ const CartPage = () => {
                             ${item.price} each
                           </p>
                         )}
+                        {soldOut ? (
+                          <p className="text-xs text-rose-300">
+                            This item is sold out. Quantity can&apos;t be increased.
+                          </p>
+                        ) : limitReached ? (
+                          <p className="text-xs text-amber-300">
+                            Stock is limited. You already have the maximum available quantity.
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                   </div>
                 </div>
-              ))}
+              )})}
 
               <button
                 onClick={clearCart}

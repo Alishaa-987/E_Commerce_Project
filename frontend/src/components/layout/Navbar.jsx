@@ -61,8 +61,8 @@ const Navbar = () => {
   return (
     <>
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0b0b0d]/95 backdrop-blur-xl border-b border-white/15 shadow-[0_12px_30px_rgba(0,0,0,0.35)]">
-        <div className="mx-auto max-w-7xl px-5 sm:px-7">
-          <div className="flex h-[74px] items-center justify-between gap-4">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="flex h-[70px] items-center justify-between gap-4">
             {/* Logo */}
             <Link
               to="/"
@@ -152,7 +152,7 @@ const Navbar = () => {
                 </Link>
               ) : (
                 <Link
-                  to="/become-seller"
+                  to="/seller-login"
                   className="hidden lg:inline-flex items-center rounded-full bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#0b0b0d] transition hover:-translate-y-0.5"
                 >
                   Become Seller
@@ -287,7 +287,7 @@ const Navbar = () => {
                 { label: "All Products", to: "/products" },
                 ...(isSellerAuthenticated
                   ? [{ label: "Seller Dashboard", to: "/seller/dashboard" }]
-                  : [{ label: "Become Seller", to: "/become-seller" }]),
+                  : [{ label: "Become Seller", to: "/seller-login" }]),
                 { label: "Wishlist", to: "/wishlist" },
                 { label: "Cart", to: "/cart" },
                 ...(isAuthenticated

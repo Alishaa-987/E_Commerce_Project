@@ -21,28 +21,28 @@ const FeaturedShops = () => {
     .slice(0, 6);
 
   return (
-    <section className="py-16 bg-[#0b0b0d]">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+    <section className="py-20 bg-[#0b0b0d]">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="flex items-end justify-between mb-8">
+        <div className="flex items-end justify-between mb-10">
           <div>
-            <p className="text-[10px] uppercase tracking-widest text-white/30 mb-2">
+            <p className="text-xs uppercase tracking-widest text-white/30 mb-2.5">
               Our sellers
             </p>
-            <h2 className="text-2xl font-Playfair font-semibold text-white">
+            <h2 className="text-3xl font-Playfair font-semibold text-white">
               Featured Shops
             </h2>
           </div>
           <Link
             to="/products"
-            className="hidden sm:flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-white/60 hover:text-white hover:border-white/30 transition"
+            className="hidden sm:flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-white/60 hover:text-white hover:border-white/30 transition"
           >
-            All shops <FiArrowRight size={12} />
+            All shops <FiArrowRight size={14} />
           </Link>
         </div>
 
         {allShopsLoading ? (
-          <div className="rounded-3xl border border-white/10 bg-[#111114] px-6 py-12 text-center text-sm text-white/45">
+          <div className="rounded-3xl border border-white/10 bg-[#111114] px-8 py-16 text-center text-base text-white/45">
             Loading shops...
           </div>
         ) : featuredShops.length ? (
@@ -52,9 +52,9 @@ const FeaturedShops = () => {
             ))}
           </div>
         ) : (
-          <div className="rounded-3xl border border-white/10 bg-[#111114] px-6 py-12 text-center">
-            <p className="text-lg font-semibold text-white">No shops live yet</p>
-            <p className="mt-2 text-sm text-white/45">
+          <div className="rounded-3xl border border-white/10 bg-[#111114] px-8 py-16 text-center">
+            <p className="text-xl font-semibold text-white">No shops live yet</p>
+            <p className="mt-3 text-base text-white/45">
               Seller storefronts from the backend will appear here as soon as they are created.
             </p>
           </div>

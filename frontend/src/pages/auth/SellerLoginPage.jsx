@@ -95,7 +95,7 @@ const SellerLoginPage = () => {
             </button>
             <p className="text-center text-xs text-white/50">
               New seller?{" "}
-              <Link to="/become-seller" className="text-emerald-200 hover:text-white">
+              <Link to="/seller-signup" className="text-emerald-200 hover:text-white">
                 Create an account
               </Link>
             </p>

@@ -13,29 +13,29 @@ const BestSelling = () => {
   const displayProducts = bestSellers.length >= 4 ? bestSellers : featured;
 
   return (
-    <section className="py-16 bg-[#0b0b0d]">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+    <section className="py-20 bg-[#0b0b0d]">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="flex items-end justify-between mb-8">
+        <div className="flex items-end justify-between mb-10">
           <div>
-            <p className="text-[10px] uppercase tracking-widest text-white/30 mb-2">
+            <p className="text-xs uppercase tracking-widest text-white/30 mb-2.5">
               Top picks
             </p>
-            <h2 className="text-2xl font-Playfair font-semibold text-white">
+            <h2 className="text-3xl font-Playfair font-semibold text-white">
               Best Selling Products
             </h2>
           </div>
           <Link
             to="/products"
-            className="hidden sm:flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-white/60 hover:text-white hover:border-white/30 transition"
+            className="hidden sm:flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-white/60 hover:text-white hover:border-white/30 transition"
           >
-            View all <FiArrowRight size={12} />
+            View all <FiArrowRight size={14} />
           </Link>
         </div>
 
         {/* Grid */}
         {allProductsLoading ? (
-          <div className="py-10 text-center text-sm text-white/45">Loading products...</div>
+          <div className="py-12 text-center text-base text-white/45">Loading products...</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {displayProducts.map((product) => (
@@ -45,12 +45,12 @@ const BestSelling = () => {
         )}
 
         {/* Mobile CTA */}
-        <div className="mt-6 flex justify-center sm:hidden">
+        <div className="mt-8 flex justify-center sm:hidden">
           <Link
             to="/products"
-            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3 text-sm font-medium text-white/60"
+            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3 text-base font-medium text-white/60"
           >
-            View all products <FiArrowRight size={14} />
+            View all products <FiArrowRight size={16} />
           </Link>
         </div>
       </div>

@@ -80,6 +80,33 @@ const toNumber = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+export const resolveAvailableStock = (item = {}) => {
+  const availableStock = Number(item?.availableStock);
+
+  if (Number.isFinite(availableStock)) {
+    return Math.max(availableStock, 0);
+  }
+
+  const sold = toNumber(item?.sold_out ?? item?.sold, 0);
+  const totalStock = Number(item?.totalStock);
+
+  if (Number.isFinite(totalStock)) {
+    return Math.max(totalStock - sold, 0);
+  }
+
+  const stock = Number(item?.stock);
+
+  if (!Number.isFinite(stock)) {
+    return 0;
+  }
+
+  if (sold > 0 && stock >= sold) {
+    return Math.max(stock - sold, 0);
+  }
+
+  return Math.max(stock, 0);
+};
+
 const toTagArray = (tags) => {
   if (Array.isArray(tags)) {
     return tags.map((tag) => String(tag).trim()).filter(Boolean);
@@ -174,6 +201,12 @@ export const normalizeProduct = (product = {}) => {
   const image =
     gallery[0] || toAbsoluteAssetUrl(product?.image || product?.images?.[0] || "");
   const sold = toNumber(product?.sold_out ?? product?.sold, 0);
+  const totalStock = toNumber(product?.stock, 0);
+  const availableStock = resolveAvailableStock({
+    ...product,
+    totalStock,
+    sold,
+  });
   const price = toNumber(product?.discountPrice ?? product?.price, 0);
   const originalPriceValue = product?.orignalPrice ?? product?.originalPrice;
   const originalPrice =
@@ -210,8 +243,10 @@ export const normalizeProduct = (product = {}) => {
     shopFollowers: toNumber(product?.shopFollowers, shop?.followers || 0),
     shopRating: toNumber(product?.shopRating, shop?.rating || 0),
     sold,
-    stock: toNumber(product?.stock, 0),
-    inStock: toNumber(product?.stock, 0) > 0,
+    totalStock,
+    availableStock,
+    stock: availableStock,
+    inStock: availableStock > 0,
     isBestSeller: product?.isBestSeller ?? sold >= 10,
     isNew,
     createdAt,

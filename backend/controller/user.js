@@ -11,6 +11,75 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const {isAuthenticated} = require("../middleware/auth");
 const catchAsyncError = require("../middleware/catchAsyncError");
+
+const validAddressTypes = ["Default", "Home", "Office"];
+
+const cleanupUploadedFile = (file) => {
+    if (file?.filename) {
+        fs.unlink(path.join("uploads", file.filename), () => {});
+    }
+};
+
+const getVerifiedUser = async (userId, currentPassword) => {
+    const password = String(currentPassword || "").trim();
+
+    if (!password) {
+        throw new ErrorHandler("Current password is required.", 400);
+    }
+
+    const user = await User.findById(userId).select("+password");
+
+    if (!user) {
+        throw new ErrorHandler("User not found.", 404);
+    }
+
+    const isPasswordValid = await user.comparePassword(password);
+
+    if (!isPasswordValid) {
+        throw new ErrorHandler("Current password is incorrect.", 400);
+    }
+
+    return user;
+};
+
+const getAddressPayload = (payload = {}) => {
+    const {
+        country,
+        countryCode,
+        city,
+        firstName = "",
+        lastName = "",
+        phone = "",
+        address1,
+        address2 = "",
+        zipCode,
+        addressType = "Home",
+    } = payload;
+
+    if (!country || !countryCode || !city || !address1 || !zipCode) {
+        throw new ErrorHandler(
+            "Country, city, address line 1, and zip code are required.",
+            400
+        );
+    }
+
+    const normalizedType = validAddressTypes.includes(addressType)
+        ? addressType
+        : "Home";
+
+    return {
+        country: String(country).trim(),
+        countryCode: String(countryCode).trim().toUpperCase(),
+        city: String(city).trim(),
+        firstName: String(firstName).trim(),
+        lastName: String(lastName).trim(),
+        phone: String(phone).trim(),
+        address1: String(address1).trim(),
+        address2: String(address2).trim(),
+        zipCode: String(zipCode).trim(),
+        addressType: normalizedType,
+    };
+};
 // Step 1: Register user and send activation email
 router.post("/create-user", upload.single("file"), async (req, res, next) => {
 
@@ -180,4 +249,260 @@ router.get("/getUser",
             user: req.user,
         });
 }));
+
+router.put(
+    "/update-user-info",
+    isAuthenticated,
+    upload.single("file"),
+    catchAsyncError(async (req, res, next) => {
+        const name = String(req.body.name || "").trim();
+        const email = String(req.body.email || "").trim().toLowerCase();
+        const phoneNumber = String(req.body.phoneNumber || "").trim();
+        const currentPassword = req.body.currentPassword;
+
+        if (!name || !email) {
+            cleanupUploadedFile(req.file);
+
+            return next(new ErrorHandler("Name and email are required.", 400));
+        }
+
+        let user = null;
+
+        try {
+            user = await getVerifiedUser(req.user._id, currentPassword);
+        } catch (error) {
+            cleanupUploadedFile(req.file);
+            return next(error);
+        }
+
+        const existingUser = await User.findOne({
+            email,
+            _id: { $ne: req.user._id },
+        });
+
+        if (existingUser) {
+            cleanupUploadedFile(req.file);
+
+            return next(new ErrorHandler("Email is already in use.", 400));
+        }
+
+        user.name = name;
+        user.email = email;
+        user.phoneNumber = phoneNumber;
+
+        if (req.file) {
+            if (user.avatar) {
+                fs.unlink(path.join("uploads", path.basename(user.avatar)), () => {});
+            }
+
+            user.avatar = req.file.filename;
+        }
+
+        await user.save();
+
+        const updatedUser = await User.findById(user._id);
+
+        res.status(200).json({
+            success: true,
+            message: "Profile updated successfully.",
+            user: updatedUser,
+        });
+    })
+);
+
+router.put(
+    "/update-user-password",
+    isAuthenticated,
+    catchAsyncError(async (req, res, next) => {
+        const oldPassword = String(req.body.oldPassword || "").trim();
+        const newPassword = String(req.body.newPassword || "");
+        const confirmPassword = String(req.body.confirmPassword || "");
+
+        if (!newPassword.trim() || !confirmPassword.trim()) {
+            return next(new ErrorHandler("New password and confirmation are required.", 400));
+        }
+
+        if (newPassword.length < 6) {
+            return next(new ErrorHandler("New password must be at least 6 characters.", 400));
+        }
+
+        if (newPassword !== confirmPassword) {
+            return next(new ErrorHandler("New passwords do not match.", 400));
+        }
+
+        if (oldPassword === newPassword) {
+            return next(
+                new ErrorHandler("New password must be different from the current password.", 400)
+            );
+        }
+
+        const user = await getVerifiedUser(req.user._id, oldPassword);
+
+        user.password = newPassword;
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Password updated successfully.",
+        });
+    })
+);
+
+router.post(
+    "/add-address",
+    isAuthenticated,
+    catchAsyncError(async (req, res, next) => {
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return next(new ErrorHandler("User not found.", 404));
+        }
+
+        const addressPayload = getAddressPayload(req.body);
+        const shouldBeDefault =
+            addressPayload.addressType === "Default" ||
+            !Array.isArray(user.addresses) ||
+            user.addresses.length === 0;
+
+        if (addressPayload.addressType === "Default") {
+            const existingDefault = user.addresses.find((address) => address.isDefault);
+
+            if (existingDefault) {
+                user.addresses.forEach((address) => {
+                    address.isDefault = String(address._id) === String(existingDefault._id);
+                });
+
+                existingDefault.country = addressPayload.country;
+                existingDefault.countryCode = addressPayload.countryCode;
+                existingDefault.city = addressPayload.city;
+                existingDefault.address1 = addressPayload.address1;
+                existingDefault.address2 = addressPayload.address2;
+                existingDefault.zipCode = addressPayload.zipCode;
+                existingDefault.addressType = addressPayload.addressType;
+                existingDefault.isDefault = true;
+
+                await user.save();
+
+                const updatedUser = await User.findById(user._id);
+
+                return res.status(200).json({
+                    success: true,
+                    message: "Default address replaced successfully.",
+                    user: updatedUser,
+                });
+            }
+        }
+
+        if (shouldBeDefault) {
+            user.addresses.forEach((address) => {
+                address.isDefault = false;
+            });
+        }
+
+        user.addresses.push({
+            ...addressPayload,
+            isDefault: shouldBeDefault,
+        });
+
+        await user.save();
+
+        const updatedUser = await User.findById(user._id);
+
+        res.status(201).json({
+            success: true,
+            message: "Address added successfully.",
+            user: updatedUser,
+        });
+    })
+);
+
+router.put(
+    "/update-address/:addressId",
+    isAuthenticated,
+    catchAsyncError(async (req, res, next) => {
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return next(new ErrorHandler("User not found.", 404));
+        }
+
+        const address = user.addresses.id(req.params.addressId);
+
+        if (!address) {
+            return next(new ErrorHandler("Address not found.", 404));
+        }
+
+        const addressPayload = getAddressPayload(req.body);
+        const isOnlyAddress = user.addresses.length === 1;
+        const shouldBeDefault = addressPayload.addressType === "Default" || isOnlyAddress;
+
+        if (shouldBeDefault) {
+            user.addresses.forEach((item) => {
+                item.isDefault = String(item._id) === String(address._id);
+            });
+        } else if (address.isDefault) {
+            const nextDefault = user.addresses.find(
+                (item) => String(item._id) !== String(address._id)
+            );
+
+            if (nextDefault) {
+                nextDefault.isDefault = true;
+            }
+        }
+
+        address.country = addressPayload.country;
+        address.countryCode = addressPayload.countryCode;
+        address.city = addressPayload.city;
+        address.address1 = addressPayload.address1;
+        address.address2 = addressPayload.address2;
+        address.zipCode = addressPayload.zipCode;
+        address.addressType = addressPayload.addressType;
+        address.isDefault = shouldBeDefault;
+
+        await user.save();
+
+        const updatedUser = await User.findById(user._id);
+
+        res.status(200).json({
+            success: true,
+            message: "Address updated successfully.",
+            user: updatedUser,
+        });
+    })
+);
+
+router.delete(
+    "/delete-address/:addressId",
+    isAuthenticated,
+    catchAsyncError(async (req, res, next) => {
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return next(new ErrorHandler("User not found.", 404));
+        }
+
+        const address = user.addresses.id(req.params.addressId);
+
+        if (!address) {
+            return next(new ErrorHandler("Address not found.", 404));
+        }
+
+        const wasDefault = address.isDefault;
+        address.deleteOne();
+
+        if (wasDefault && user.addresses.length > 0) {
+            user.addresses[0].isDefault = true;
+        }
+
+        await user.save();
+
+        const updatedUser = await User.findById(user._id);
+
+        res.status(200).json({
+            success: true,
+            message: "Address deleted successfully.",
+            user: updatedUser,
+        });
+    })
+);
 module.exports = router;

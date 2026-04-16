@@ -151,7 +151,9 @@ const SellerDashboardProductsPanel = ({
                   <td className="px-5 py-4 text-sm font-semibold text-white">
                     {formatSellerCurrency(product.price)}
                   </td>
-                  <td className="px-5 py-4 text-sm text-white/70">{product.stock}</td>
+                  <td className="px-5 py-4 text-sm text-white/70">
+                    {product.totalStock ?? product.stock}
+                  </td>
                   <td className="px-5 py-4 text-sm text-white/70">{product.sold}</td>
                   <td className="px-5 py-4">
                     <button
@@ -267,7 +269,9 @@ const SellerDashboardProductsPanel = ({
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                     <p className="text-[10px] uppercase tracking-[0.18em] text-white/35">Stock</p>
-                    <p className="mt-2 text-lg font-semibold text-white">{previewProduct.stock}</p>
+                    <p className="mt-2 text-lg font-semibold text-white">
+                      {previewProduct.totalStock ?? previewProduct.stock}
+                    </p>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                     <p className="text-[10px] uppercase tracking-[0.18em] text-white/35">

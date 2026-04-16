@@ -6,6 +6,9 @@ const Product = require("../model/product");
 const ErrorHandler = require("../utils/ErrorHandler");
 const catchAsyncError = require("../middleware/catchAsyncError");
 
+const getCartItemId = (item = {}) => String(item?.id || item?._id || "").trim();
+const normalizeCouponName = (value = "") => String(value).trim().toUpperCase();
+
 router.post(
   "/create-coupon-code",
   catchAsyncError(async (req, res, next) => {
@@ -90,6 +93,93 @@ router.post(
     res.status(201).json({
       success: true,
       couponCode,
+    });
+  })
+);
+
+router.post(
+  "/validate-coupon",
+  catchAsyncError(async (req, res, next) => {
+    const normalizedName = normalizeCouponName(req.body.name);
+    const cartItems = Array.isArray(req.body.cartItems) ? req.body.cartItems : [];
+
+    if (!normalizedName) {
+      return next(new ErrorHandler("Please enter a coupon code.", 400));
+    }
+
+    if (!cartItems.length) {
+      return next(new ErrorHandler("Your cart is empty.", 400));
+    }
+
+    const couponCodes = await CouponCode.find({ name: normalizedName });
+
+    if (!couponCodes.length) {
+      return next(new ErrorHandler("Coupon code is invalid.", 404));
+    }
+
+    const matchedCoupon = couponCodes.find((coupon) =>
+      cartItems.some((item) => getCartItemId(item) === String(coupon.selectedProductId))
+    );
+
+    if (!matchedCoupon) {
+      return next(
+        new ErrorHandler("This coupon only works for its matching product in your cart.", 400)
+      );
+    }
+
+    const matchedItem = cartItems.find(
+      (item) => getCartItemId(item) === String(matchedCoupon.selectedProductId)
+    );
+
+    const price = Number(matchedItem?.price || 0);
+    const qty = Math.max(1, Number(matchedItem?.qty) || 1);
+    const subtotal = Number((price * qty).toFixed(2));
+
+    if (subtotal <= 0) {
+      return next(new ErrorHandler("This coupon could not be applied to the selected product.", 400));
+    }
+
+    if (
+      matchedCoupon.minAmount !== undefined &&
+      matchedCoupon.minAmount !== null &&
+      subtotal < Number(matchedCoupon.minAmount)
+    ) {
+      return next(
+        new ErrorHandler(
+          `This coupon needs at least $${Number(matchedCoupon.minAmount).toFixed(2)} of ${matchedCoupon.selectedProductName}.`,
+          400
+        )
+      );
+    }
+
+    if (
+      matchedCoupon.maxAmount !== undefined &&
+      matchedCoupon.maxAmount !== null &&
+      subtotal > Number(matchedCoupon.maxAmount)
+    ) {
+      return next(
+        new ErrorHandler(
+          `This coupon is only valid when ${matchedCoupon.selectedProductName} is $${Number(
+            matchedCoupon.maxAmount
+          ).toFixed(2)} or less.`,
+          400
+        )
+      );
+    }
+
+    const discountAmount = Number(((subtotal * Number(matchedCoupon.value || 0)) / 100).toFixed(2));
+
+    res.status(200).json({
+      success: true,
+      message: `${matchedCoupon.name} applied to ${matchedCoupon.selectedProductName}.`,
+      discountAmount,
+      productSubtotal: subtotal,
+      coupon: {
+        name: matchedCoupon.name,
+        value: matchedCoupon.value,
+        selectedProductId: matchedCoupon.selectedProductId,
+        selectedProductName: matchedCoupon.selectedProductName,
+      },
     });
   })
 );

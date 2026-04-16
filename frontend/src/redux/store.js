@@ -3,6 +3,7 @@ import userReducer from "./reducers/user";
 import { productReducer } from "./reducers/product";
 import { eventReducer } from "./reducers/event";
 import { sellerReducer } from "./reducers/seller";
+import { cartReducer } from "./reducers/cart";
 
 const Store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ const Store = configureStore({
     products: productReducer,
     seller: sellerReducer,
     events: eventReducer,
+    cart: cartReducer,
   },
 });
 

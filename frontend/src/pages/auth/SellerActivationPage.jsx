@@ -32,7 +32,7 @@ const SellerActivationPage = () => {
                 Your activation link is invalid or expired. Please sign up again.
               </p>
               <Link
-                to="/become-seller"
+                to="/seller-signup"
                 className="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#0b0b0d]"
               >
                 Try again

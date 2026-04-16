@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FiSearch, FiFilter, FiX } from "react-icons/fi";
 import { useSelector } from "react-redux";
@@ -18,18 +18,36 @@ const sortOptions = [
 const ProductsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [sort, setSort] = useState("new");
-  const [priceMax, setPriceMax] = useState(600);
+  const [priceMax, setPriceMax] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { allProducts, allProductsLoading } = useSelector((state) => state.products);
 
-  const activeCategory = searchParams.get("category") || "";
+  const activeCategory = (searchParams.get("category") || "").trim();
   const searchQuery = searchParams.get("search") || "";
   const categories = useMemo(() => deriveCategories(allProducts), [allProducts]);
+  const sliderMax = useMemo(() => {
+    const highestPrice = allProducts.reduce(
+      (max, product) => Math.max(max, Number(product?.price) || 0),
+      0
+    );
+
+    return Math.max(highestPrice, 100);
+  }, [allProducts]);
+
+  useEffect(() => {
+    setPriceMax((current) => {
+      if (current === null) {
+        return sliderMax;
+      }
+
+      return current > sliderMax ? sliderMax : current;
+    });
+  }, [sliderMax]);
 
   const setCategory = (cat) => {
     const params = new URLSearchParams(searchParams);
     if (cat) {
-      params.set("category", cat);
+      params.set("category", cat.trim());
     } else {
       params.delete("category");
     }
@@ -38,23 +56,28 @@ const ProductsPage = () => {
 
   const filteredProducts = useMemo(() => {
     let result = [...allProducts];
+    const normalizedActiveCategory = activeCategory.toLowerCase();
 
     if (activeCategory) {
-      result = result.filter((p) => p.category === activeCategory);
+      result = result.filter(
+        (product) => product.category?.trim().toLowerCase() === normalizedActiveCategory
+      );
     }
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q) ||
-          p.shopName.toLowerCase().includes(q) ||
-          p.tags.some((t) => t.toLowerCase().includes(q))
+        (product) =>
+          product.name.toLowerCase().includes(q) ||
+          product.category.toLowerCase().includes(q) ||
+          product.shopName.toLowerCase().includes(q) ||
+          product.tags.some((tag) => tag.toLowerCase().includes(q))
       );
     }
 
-    result = result.filter((p) => p.price <= priceMax);
+    if (priceMax !== null) {
+      result = result.filter((product) => Number(product.price) <= priceMax);
+    }
 
     switch (sort) {
       case "price-asc":
@@ -119,16 +142,16 @@ const ProductsPage = () => {
         <div className="space-y-3">
           <input
             type="range"
-            min={20}
-            max={600}
-            value={priceMax}
+            min={0}
+            max={sliderMax}
+            value={priceMax ?? sliderMax}
             onChange={(e) => setPriceMax(Number(e.target.value))}
             className="w-full accent-emerald-300"
           />
           <div className="flex items-center justify-between text-xs text-white/50">
-            <span>$20</span>
-            <span className="text-white font-medium">${priceMax}</span>
-            <span>$600</span>
+            <span>$0</span>
+            <span className="text-white font-medium">${priceMax ?? sliderMax}</span>
+            <span>${sliderMax}</span>
           </div>
         </div>
       </div>
@@ -154,13 +177,13 @@ const ProductsPage = () => {
     <div className="min-h-screen bg-[#0b0b0d] text-white font-Poppins">
       <Navbar />
 
-      <div className="mx-auto max-w-7xl px-6 pt-24 pb-16">
+      <div className="mx-auto max-w-7xl px-8 sm:px-10 pt-[96px] pb-20">
         {/* Page header */}
-        <div className="mb-8">
-          <p className="text-[10px] uppercase tracking-widest text-white/30 mb-2">
+        <div className="mb-6">
+          <p className="text-xs uppercase tracking-widest text-white/30 mb-2.5">
             {activeCategory || "All"} | {filteredProducts.length} results
           </p>
-          <h1 className="text-3xl font-Playfair font-semibold text-white">
+          <h1 className="text-4xl font-Playfair font-semibold text-white">
             {searchQuery
               ? `Results for "${searchQuery}"`
               : activeCategory
@@ -170,20 +193,20 @@ const ProductsPage = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center justify-between gap-4 mb-6 pb-6 border-b border-white/10">
+        <div className="flex items-center justify-between gap-5 mb-6 pb-4 border-b border-white/10">
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/60 hover:text-white hover:border-white/30 transition lg:hidden"
+            className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-base text-white/60 hover:text-white hover:border-white/30 transition lg:hidden"
           >
-            <FiFilter size={14} /> Filters
+            <FiFilter size={16} /> Filters
           </button>
 
-          <div className="flex items-center gap-3 ml-auto">
-            <span className="text-xs text-white/30 hidden sm:block">Sort by</span>
+          <div className="flex items-center gap-4 ml-auto">
+            <span className="text-sm text-white/30 hidden sm:block">Sort by</span>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value)}
-              className="rounded-xl border border-white/10 bg-[#111114] px-3 py-2 text-sm text-white/70 outline-none focus:border-white/30"
+              className="rounded-xl border border-white/10 bg-[#111114] px-4 py-3 text-base text-white/70 outline-none focus:border-white/30"
             >
               {sortOptions.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -194,10 +217,10 @@ const ProductsPage = () => {
           </div>
         </div>
 
-        <div className="flex gap-8">
+        <div className="flex gap-10">
           {/* Sidebar - desktop */}
-          <aside className="hidden lg:block w-52 shrink-0">
-            <div className="sticky top-24">
+          <aside className="hidden lg:block w-56 shrink-0">
+            <div className="sticky top-28">
               <FilterPanel />
             </div>
           </aside>
@@ -205,21 +228,21 @@ const ProductsPage = () => {
           {/* Product grid */}
           <div className="flex-1">
             {allProductsLoading ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <p className="text-white/40 text-lg font-Playfair">Loading products</p>
+              <div className="flex flex-col items-center justify-center py-28 text-center">
+                <p className="text-white/40 text-xl font-Playfair">Loading products</p>
               </div>
             ) : filteredProducts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <FiSearch size={40} className="text-white/20 mb-4" />
-                <p className="text-white/40 text-lg font-Playfair">
+              <div className="flex flex-col items-center justify-center py-28 text-center">
+                <FiSearch size={48} className="text-white/20 mb-5" />
+                <p className="text-white/40 text-xl font-Playfair">
                   No products found
                 </p>
-                <p className="text-white/30 text-sm mt-1">
+                <p className="text-white/30 text-base mt-2">
                   Try adjusting your filters or search terms
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filteredProducts.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}

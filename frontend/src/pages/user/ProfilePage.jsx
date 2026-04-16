@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FiUser,
@@ -6,7 +6,7 @@ import {
   FiRefreshCw,
   FiMail,
   FiMapPin,
-  FiCreditCard,
+  FiLock,
   FiHeart,
   FiLogOut,
   FiTruck,
@@ -14,16 +14,24 @@ import {
   FiArrowRight,
   FiClock,
   FiTrash2,
-  FiPhone,
-  FiHome,
 } from "react-icons/fi";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import { useDispatch, useSelector } from "react-redux";
-import { backend_url } from "../../server";
-import { logoutUser } from "../../redux/actions/user";
+import AddressModal from "../../components/user/AddressModal";
+import SavedAddressRow from "../../components/user/SavedAddressRow";
+import {
+  addUserAddress,
+  deleteUserAddress,
+  logoutUser,
+  updateUserAddress,
+  updateUserPassword,
+  updateUserProfile,
+} from "../../redux/actions/user";
+import { clearUserFeedback } from "../../redux/reducers/user";
 import { useWishlist } from "../../context/WishlistContext";
 import ProductCard from "../../components/cards/ProductCard";
+import { toAbsoluteAssetUrl } from "../../utils/marketplace";
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/10 transition";
@@ -137,52 +145,18 @@ const mockTracking = [
   },
 ];
 
-const mockPayments = [
-  {
-    id: "card-1",
-    label: "Visa",
-    holder: "Amara Khan",
-    last4: "4242",
-    exp: "08/28",
-    cvv: "***",
-    isDefault: true,
-  },
-  {
-    id: "card-2",
-    label: "Mastercard",
-    holder: "Studio Blanc",
-    last4: "8844",
-    exp: "12/27",
-    cvv: "***",
-    isDefault: false,
-  },
-];
-
-const mockAddresses = [
-  {
-    id: "addr-1",
-    label: "Home (Default)",
-    name: "Amara Khan",
-    line1: "23 Ocean Avenue",
-    line2: "Apt 12B, Karachi",
-    phone: "+92 300 0000000",
-    isDefault: true,
-  },
-  {
-    id: "addr-2",
-    label: "Studio",
-    name: "Studio Blanc",
-    line1: "14 Design Street",
-    line2: "Phase 6, DHA",
-    phone: "+92 333 1112233",
-    isDefault: false,
-  },
-];
-
 const ProfilePage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.user);
+  const {
+    user,
+    profileUpdateLoading,
+    profileUpdateError,
+    addressActionLoading,
+    addressActionError,
+    addressActionId,
+    successMessage,
+  } = useSelector((state) => state.user);
   const { wishlist } = useWishlist();
 
   const [activeTab, setActiveTab] = useState("profile");
@@ -190,17 +164,21 @@ const ProfilePage = () => {
     name: user?.name || "",
     email: user?.email || "",
     phone: user?.phoneNumber || "",
-    zip: user?.zip || "",
-    address1: user?.address1 || "",
-    address2: user?.address2 || "",
+    currentPassword: "",
   });
-  const [avatarPreview, setAvatarPreview] = useState(
-    user?.avatar ? `${backend_url}${user.avatar}` : "https://i.pravatar.cc/160?u=default"
-  );
-  const [message, setMessage] = useState("");
+  const [avatarPreview, setAvatarPreview] = useState(toAbsoluteAssetUrl(user?.avatar || ""));
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [passwordForm, setPasswordForm] = useState({
+    oldPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [editingAddress, setEditingAddress] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(mockOrders[0]);
   const [selectedRefund, setSelectedRefund] = useState(mockRefunds[0]);
   const [selectedTrack, setSelectedTrack] = useState(mockTracking[0]);
+  const savedAddresses = user?.addresses || [];
 
   const tabs = useMemo(
     () => [
@@ -209,7 +187,7 @@ const ProfilePage = () => {
       { key: "refunds", label: "Refunds", icon: FiRefreshCw },
       { key: "inbox", label: "Inbox", icon: FiMail },
       { key: "track", label: "Track Order", icon: FiTruck },
-      { key: "payments", label: "Payment Methods", icon: FiCreditCard },
+      { key: "payments", label: "Change Password", icon: FiLock },
       { key: "address", label: "Address", icon: FiMapPin },
       { key: "wishlist", label: "Wishlist", icon: FiHeart },
       { key: "logout", label: "Log out", icon: FiLogOut },
@@ -220,16 +198,81 @@ const ProfilePage = () => {
   const handleChange = (e) =>
     setProfile((p) => ({ ...p, [e.target.name]: e.target.value }));
 
+  const handlePasswordFieldChange = (event) =>
+    setPasswordForm((current) => ({
+      ...current,
+      [event.target.name]: event.target.value,
+    }));
+
+  useEffect(() => {
+    setProfile((current) => ({
+      ...current,
+      name: user?.name || "",
+      email: user?.email || "",
+      phone: user?.phoneNumber || "",
+      currentPassword: "",
+    }));
+    setAvatarPreview(toAbsoluteAssetUrl(user?.avatar || ""));
+    setAvatarFile(null);
+  }, [
+    user?.avatar,
+    user?.email,
+    user?.name,
+    user?.phoneNumber,
+  ]);
+
+  useEffect(() => {
+    if (!successMessage && !profileUpdateError && !addressActionError) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      dispatch(clearUserFeedback());
+    }, 3000);
+
+    return () => window.clearTimeout(timer);
+  }, [addressActionError, dispatch, profileUpdateError, successMessage]);
+
   const handleAvatar = (e) => {
     const file = e.target.files?.[0];
     if (file) {
+      setAvatarFile(file);
       setAvatarPreview(URL.createObjectURL(file));
     }
   };
 
-  const handleSave = () => {
-    setMessage("Profile updated (local only).");
-    setTimeout(() => setMessage(""), 2500);
+  const handleSave = async () => {
+    const formData = new FormData();
+    formData.append("name", profile.name);
+    formData.append("email", profile.email);
+    formData.append("phoneNumber", profile.phone);
+    formData.append("currentPassword", profile.currentPassword);
+
+    if (avatarFile) {
+      formData.append("file", avatarFile);
+    }
+
+    const result = await dispatch(updateUserProfile(formData));
+
+    if (result?.success) {
+      setProfile((current) => ({
+        ...current,
+        currentPassword: "",
+      }));
+      setAvatarFile(null);
+    }
+  };
+
+  const handlePasswordUpdate = async () => {
+    const result = await dispatch(updateUserPassword(passwordForm));
+
+    if (result?.success) {
+      setPasswordForm({
+        oldPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+    }
   };
 
   const handleLogout = async () => {
@@ -242,18 +285,50 @@ const ProfilePage = () => {
     }
   };
 
+  const handleCreateAddress = async (addressData) => {
+    const result = await dispatch(addUserAddress(addressData));
+    return result;
+  };
+
+  const handleUpdateAddress = async (addressData) => {
+    if (!editingAddress?._id) {
+      return {
+        success: false,
+        message: "Address could not be updated.",
+      };
+    }
+
+    const result = await dispatch(updateUserAddress(editingAddress._id, addressData));
+
+    if (result?.success) {
+      setEditingAddress(null);
+    }
+
+    return result;
+  };
+
+  const handleDeleteAddress = async (address) => {
+    await dispatch(deleteUserAddress(address._id));
+  };
+
   const renderContent = () => {
     if (activeTab === "profile") {
       return (
-        <div className="rounded-2xl border border-white/10 bg-[#111114] p-6 lg:p-8 space-y-6">
+          <div className="rounded-2xl border border-white/10 bg-[#111114] p-6 lg:p-8 space-y-6">
           <div className="flex flex-col items-center gap-3">
             <div className="relative group">
               <div className="h-32 w-32 rounded-full p-[3px] bg-gradient-to-br from-emerald-300 to-white/40 shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
-                <img
-                  src={avatarPreview}
-                  alt="avatar"
-                  className="h-full w-full rounded-full object-cover border border-[#0b0b0d]"
-                />
+                {avatarPreview ? (
+                  <img
+                    src={avatarPreview}
+                    alt="avatar"
+                    className="h-full w-full rounded-full object-cover border border-[#0b0b0d]"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center rounded-full border border-[#0b0b0d] bg-[#0b0b0d] text-3xl font-semibold text-emerald-200">
+                    {(profile.name || user?.name || "U").trim().charAt(0).toUpperCase() || "U"}
+                  </div>
+                )}
               </div>
               <label className="absolute bottom-2 right-1 flex items-center gap-1 cursor-pointer rounded-full bg-white text-[#0b0b0d] text-xs font-semibold px-2 py-1 shadow-lg opacity-90 group-hover:opacity-100">
                 <FiCamera size={12} />
@@ -265,7 +340,7 @@ const ProfilePage = () => {
             <p className="text-white/50 text-sm">{profile.email || "your@email.com"}</p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">
               <label className="text-xs text-white/40">Full Name</label>
               <input
@@ -298,45 +373,32 @@ const ProfilePage = () => {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-white/40">Zip Code</label>
+              <label className="text-xs text-white/40">Current Password</label>
               <input
-                name="zip"
-                value={profile.zip}
+                name="currentPassword"
+                type="password"
+                value={profile.currentPassword}
                 onChange={handleChange}
-                placeholder="74000"
-                className={inputClass}
-              />
-            </div>
-            <div className="space-y-1 sm:col-span-2">
-              <label className="text-xs text-white/40">Address 1</label>
-              <input
-                name="address1"
-                value={profile.address1}
-                onChange={handleChange}
-                placeholder="Address line 1"
-                className={inputClass}
-              />
-            </div>
-            <div className="space-y-1 sm:col-span-2">
-              <label className="text-xs text-white/40">Address 2</label>
-              <input
-                name="address2"
-                value={profile.address2}
-                onChange={handleChange}
-                placeholder="Address line 2"
+                placeholder="Enter password to save changes"
                 className={inputClass}
               />
             </div>
           </div>
 
-          {message && <p className="text-sm text-emerald-300">{message}</p>}
+          {profileUpdateError ? (
+            <p className="text-sm text-rose-300">{profileUpdateError}</p>
+          ) : null}
+          {!profileUpdateError && successMessage && activeTab === "profile" ? (
+            <p className="text-sm text-emerald-300">{successMessage}</p>
+          ) : null}
 
           <div className="flex gap-3">
             <button
               onClick={handleSave}
+              disabled={profileUpdateLoading}
               className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[#0b0b0d] transition hover:-translate-y-0.5"
             >
-              Update
+              {profileUpdateLoading ? "Updating..." : "Update"}
             </button>
           </div>
         </div>
@@ -631,18 +693,68 @@ const ProfilePage = () => {
     if (activeTab === "payments") {
       return (
         <div className="rounded-2xl border border-white/10 bg-[#111114] p-6 lg:p-8 space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] uppercase tracking-widest text-white/30 mb-1">Payments</p>
-              <h2 className="text-xl font-Playfair font-semibold text-white">Payment methods</h2>
-            </div>
-            <button className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70 hover:border-white/30 transition">
-              + Add new
-            </button>
+          <div className="space-y-2 text-left">
+            <p className="text-[10px] uppercase tracking-widest text-white/30">Security</p>
+            <h2 className="text-xl font-Playfair font-semibold text-white">Change Password</h2>
+            <p className="text-sm text-white/45 max-w-2xl">
+              Use your current password to confirm the update before saving a new one.
+            </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            {mockPayments.map((card) => (
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs text-white/40">Old Password</label>
+              <input
+                name="oldPassword"
+                type="password"
+                value={passwordForm.oldPassword}
+                onChange={handlePasswordFieldChange}
+                placeholder="Enter current password"
+                className={inputClass}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-white/40">New Password</label>
+              <input
+                name="newPassword"
+                type="password"
+                value={passwordForm.newPassword}
+                onChange={handlePasswordFieldChange}
+                placeholder="Enter new password"
+                className={inputClass}
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-xs text-white/40">Confirm New Password</label>
+              <input
+                name="confirmPassword"
+                type="password"
+                value={passwordForm.confirmPassword}
+                onChange={handlePasswordFieldChange}
+                placeholder="Enter new password again"
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          {profileUpdateError ? (
+            <p className="text-sm text-rose-300">{profileUpdateError}</p>
+          ) : null}
+          {!profileUpdateError && successMessage && activeTab === "payments" ? (
+            <p className="text-sm text-emerald-300">{successMessage}</p>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={handlePasswordUpdate}
+            disabled={profileUpdateLoading}
+            className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[#0b0b0d] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {profileUpdateLoading ? "Updating..." : "Update"}
+          </button>
+
+          <div className="hidden">
+            {[].map((card) => (
               <div
                 key={card.id}
                 className={`rounded-2xl border ${card.isDefault ? "border-emerald-300/40" : "border-white/10"} bg-[#0f0f12] p-4 space-y-3 shadow-[0_15px_40px_rgba(0,0,0,0.35)]`}
@@ -695,48 +807,49 @@ const ProfilePage = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[10px] uppercase tracking-widest text-white/30 mb-1">Addresses</p>
-              <h2 className="text-xl font-Playfair font-semibold text-white">Delivery addresses</h2>
+              <h2 className="text-xl font-Playfair font-semibold text-white">My addresses</h2>
             </div>
-            <button className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70 hover:border-white/30 transition">
-              + Add address
+            <button
+              type="button"
+              onClick={() => {
+                dispatch(clearUserFeedback());
+                setEditingAddress(null);
+                setIsAddressModalOpen(true);
+              }}
+              className="rounded-xl bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#0b0b0d] transition hover:-translate-y-0.5"
+            >
+              Add New
             </button>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            {mockAddresses.map((addr) => (
-              <div
-                key={addr.id}
-                className={`rounded-2xl border ${addr.isDefault ? "border-emerald-300/40" : "border-white/10"} bg-[#0f0f12] p-4 space-y-3`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FiHome size={14} className="text-emerald-200" />
-                    <div>
-                      <p className="text-sm font-semibold text-white">{addr.label}</p>
-                      {addr.isDefault && (
-                        <span className="text-[11px] text-emerald-200 uppercase font-semibold">Default</span>
-                      )}
-                    </div>
-                  </div>
-                  <button className="text-white/40 hover:text-rose-300 transition">
-                    <FiTrash2 size={16} />
-                  </button>
-                </div>
-                <p className="text-sm text-white/70 leading-relaxed">
-                  {addr.line1}
-                  <br />
-                  {addr.line2}
-                </p>
-                <div className="flex items-center gap-3 text-xs text-white/60">
-                  <span className="font-semibold text-white">{addr.name}</span>
-                  <div className="flex items-center gap-1 text-white/50">
-                    <FiPhone size={12} />
-                    <span>{addr.phone}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          {addressActionError ? (
+            <p className="text-sm text-rose-300">{addressActionError}</p>
+          ) : null}
+          {!addressActionError && successMessage && activeTab === "address" ? (
+            <p className="text-sm text-emerald-300">{successMessage}</p>
+          ) : null}
+
+          {savedAddresses.length ? (
+            <div className="space-y-3">
+              {savedAddresses.map((address) => (
+                <SavedAddressRow
+                  key={address._id}
+                  address={address}
+                  onEdit={(selectedAddress) => {
+                    dispatch(clearUserFeedback());
+                    setEditingAddress(selectedAddress);
+                    setIsAddressModalOpen(true);
+                  }}
+                  onDelete={handleDeleteAddress}
+                  isDeleting={addressActionLoading && addressActionId === address._id}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-white/10 bg-[#0f0f12] px-4 py-5 text-sm text-white/55">
+              No saved addresses yet. Add one and it will appear here for profile and checkout.
+            </div>
+          )}
         </div>
       );
     }
@@ -776,28 +889,32 @@ const ProfilePage = () => {
   return (
     <div className="min-h-screen bg-[#0b0b0d] text-white font-Poppins">
       <Navbar />
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-24 pb-16">
-        <div className="grid gap-6 lg:grid-cols-4">
+      <div className="mx-auto max-w-6xl px-8 sm:px-12 pt-28 pb-28">
+        <div className="grid gap-8 lg:grid-cols-4">
           {/* Sidebar */}
-          <div className="rounded-2xl border border-white/10 bg-[#111114] p-4">
-            <ul className="space-y-2 text-sm">
+          <div className="rounded-2xl border border-white/10 bg-[#111114] p-5">
+            <ul className="space-y-2.5 text-base">
               {tabs.map(({ key, label, icon: Icon }) => (
                 <li key={key}>
                   <button
                     onClick={() => {
-                      if (key === "logout") {
-                        handleLogout();
-                      } else {
-                        setActiveTab(key);
-                      }
-                    }}
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 transition ${
+                        if (key === "logout") {
+                          handleLogout();
+                        } else {
+                          dispatch(clearUserFeedback());
+                          if (key !== "address") {
+                            setEditingAddress(null);
+                          }
+                          setActiveTab(key);
+                        }
+                      }}
+                    className={`flex w-full items-center gap-3.5 rounded-xl px-4 py-3 transition ${
                       activeTab === key
                         ? "bg-white/10 text-white"
                         : "text-white/60 hover:text-white hover:bg-white/5"
                     }`}
                   >
-                    <Icon size={14} />
+                    <Icon size={16} />
                     <span>{label}</span>
                   </button>
                 </li>
@@ -809,6 +926,16 @@ const ProfilePage = () => {
           <div className="lg:col-span-3">{renderContent()}</div>
         </div>
       </div>
+      <AddressModal
+        isOpen={isAddressModalOpen}
+        isSubmitting={addressActionLoading}
+        initialAddress={editingAddress}
+        onClose={() => {
+          setIsAddressModalOpen(false);
+          setEditingAddress(null);
+        }}
+        onSubmitAddress={editingAddress ? handleUpdateAddress : handleCreateAddress}
+      />
       <Footer />
     </div>
   );

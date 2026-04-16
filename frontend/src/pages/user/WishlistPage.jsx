@@ -5,10 +5,11 @@ import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import { useWishlist } from "../../context/WishlistContext";
 import { useCart } from "../../context/CartContext";
+import { resolveAvailableStock } from "../../utils/marketplace";
 
 const WishlistPage = () => {
   const { wishlist, toggleWishlist } = useWishlist();
-  const { addToCart } = useCart();
+  const { addToCart, getCartItemQty, isInCart } = useCart();
 
   return (
     <div className="min-h-screen bg-[#0b0b0d] text-white font-Poppins">
@@ -44,51 +45,82 @@ const WishlistPage = () => {
           </div>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {wishlist.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-2xl border border-white/10 bg-[#111114] overflow-hidden"
-              >
-                <Link to={`/product/${item.id}`}>
-                  <div className="aspect-square bg-[#18181b] p-4">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="h-full w-full object-contain"
-                    />
-                  </div>
-                </Link>
-                <div className="p-4 space-y-2">
-                  <p className="text-[10px] text-white/40">{item.shopName}</p>
-                  <Link
-                    to={`/product/${item.id}`}
-                    className="text-sm font-medium text-white hover:text-emerald-200 transition line-clamp-2"
-                  >
-                    {item.name}
+            {wishlist.map((item) => {
+              const stock = resolveAvailableStock(item);
+              const soldOut = stock <= 0;
+              const limitReached = stock > 0 && getCartItemQty(item) >= stock;
+
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-2xl border border-white/10 bg-[#111114] overflow-hidden"
+                >
+                  <Link to={`/product/${item.id}`}>
+                    <div className="aspect-square bg-[#18181b] p-4">
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
                   </Link>
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="text-lg font-semibold text-white">
-                      ${item.price}
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => toggleWishlist(item)}
-                        className="h-9 w-9 flex items-center justify-center rounded-lg border border-white/10 text-white/50 hover:text-white hover:border-white/30 transition"
-                        aria-label="Remove from wishlist"
-                      >
-                        <FiTrash2 size={14} />
-                      </button>
-                      <button
-                        onClick={() => addToCart(item)}
-                        className="h-9 px-3 flex items-center gap-1 rounded-lg bg-white text-[#0b0b0d] text-sm font-semibold hover:-translate-y-0.5 transition"
-                      >
-                        <FiShoppingCart size={14} /> Add
-                      </button>
+                  <div className="p-4 space-y-2">
+                    <p className="text-[10px] text-white/40">{item.shopName}</p>
+                    <Link
+                      to={`/product/${item.id}`}
+                      className="text-sm font-medium text-white hover:text-emerald-200 transition line-clamp-2"
+                    >
+                      {item.name}
+                    </Link>
+                    <div className="flex items-center justify-between pt-2">
+                      <span className="text-lg font-semibold text-white">
+                        ${item.price}
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => toggleWishlist(item)}
+                          className="h-9 w-9 flex items-center justify-center rounded-lg border border-white/10 text-white/50 hover:text-white hover:border-white/30 transition"
+                          aria-label="Remove from wishlist"
+                        >
+                          <FiTrash2 size={14} />
+                        </button>
+                        <button
+                          onClick={() => addToCart(item)}
+                          disabled={soldOut || limitReached}
+                          title={
+                            soldOut
+                              ? "This product is sold out"
+                              : limitReached
+                              ? "Stock limit reached"
+                              : isInCart(item)
+                              ? "In cart"
+                              : "Add to cart"
+                          }
+                          className={`h-9 px-3 flex items-center gap-1 rounded-lg text-sm font-semibold transition ${
+                            soldOut
+                              ? "cursor-not-allowed border border-rose-300/20 bg-rose-300/10 text-rose-200"
+                              : limitReached
+                              ? "cursor-not-allowed border border-amber-300/30 bg-amber-300/10 text-amber-200"
+                              : isInCart(item)
+                              ? "border border-emerald-300/30 bg-emerald-300/15 text-emerald-200"
+                              : "bg-white text-[#0b0b0d] hover:-translate-y-0.5"
+                          }`}
+                        >
+                          <FiShoppingCart size={14} />
+                          {soldOut
+                            ? "Sold out"
+                            : limitReached
+                            ? "Stock limit"
+                            : isInCart(item)
+                            ? "In cart"
+                            : "Add"}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
