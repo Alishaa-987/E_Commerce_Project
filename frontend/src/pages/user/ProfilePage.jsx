@@ -657,7 +657,7 @@ const ProfilePage = () => {
                     {(selectedOrder.cart || []).map((item) => (
                       <div
                         key={item._id}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-white/5 bg-[#0b0b0d] p-3"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-white/5 bg-[#0b0b0d] p-3"
                       >
                         <div className="flex items-center gap-3">
                           <img
@@ -672,9 +672,54 @@ const ProfilePage = () => {
                             </p>
                           </div>
                         </div>
-
+                        
+                        {selectedOrder.orderStatus === "delivered" && (
+                          <div className="flex items-center">
+                            {!item.reviewSubmitted ? (
+                              <button
+                                onClick={() => {
+                                  setReviewingItem(item);
+                                  setReviewModalOpen(true);
+                                }}
+                                className="text-xs font-medium text-emerald-300 border border-emerald-300/30 rounded px-3 py-1.5 hover:bg-emerald-300/10 transition whitespace-nowrap"
+                              >
+                                Write a Review
+                              </button>
+                            ) : (
+                              <span className="text-xs font-medium text-white/40 px-3 py-1.5 border border-white/5 rounded bg-white/5 whitespace-nowrap">
+                                Reviewed
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
+
+                  {selectedOrder.orderStatus === "delivered" && (
+                    <div className="mt-4 border-t border-white/10 pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-white">Need a Refund?</p>
+                        <p className="text-xs text-white/40">You can request a refund if there is an issue with your order.</p>
+                      </div>
+                      
+                      {selectedOrder.refund?.requested ? (
+                        <div className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-200 rounded-lg text-xs font-semibold uppercase tracking-wider text-center">
+                          Refund {selectedOrder.refund.status || "Pending"}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setRequestingRefundItem(selectedOrder);
+                            setRefundModalOpen(true);
+                          }}
+                          className="text-xs font-semibold text-rose-300 border border-rose-300/30 rounded px-4 py-2 hover:bg-rose-300/10 transition whitespace-nowrap"
+                        >
+                          Request Refund
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : null}
             </>
@@ -1162,6 +1207,22 @@ const ProfilePage = () => {
           }}
         />
       )}
+      {isRefundModalOpen && requestingRefundItem && (
+        <RefundModal
+          order={requestingRefundItem}
+          onClose={() => {
+            setRefundModalOpen(false);
+            setRequestingRefundItem(null);
+          }}
+          onRefundRequested={() => {
+            refreshOrders();
+            setTimeout(() => {
+              setRefundModalOpen(false);
+              setRequestingRefundItem(null);
+            }, 2000);
+          }}
+        />
+      )}
       <Footer />
     </div>
   );
@@ -1188,6 +1249,26 @@ const ReviewModal = ({ product, orderId, onClose, onReviewSubmitted }) => {
         >
           Cancel
         </button>
+      </div>
+    </div>
+  );
+};
+
+const RefundModal = ({ order, onClose, onRefundRequested }) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0b0d] p-6 shadow-2xl">
+        <h3 className="mb-2 font-Playfair text-xl font-semibold text-white">
+          Request Refund
+        </h3>
+        <p className="text-sm text-white/60 mb-6">
+          Order ID: {formatOrderDisplayId(order._id)}
+        </p>
+        <RefundRequestForm
+          order={order}
+          onClose={onClose}
+          onRefundRequested={onRefundRequested}
+        />
       </div>
     </div>
   );
