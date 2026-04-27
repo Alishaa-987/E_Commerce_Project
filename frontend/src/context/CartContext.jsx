@@ -42,6 +42,19 @@ const normalizeCartItem = (item, qty = 1) => {
       ? rawStock
       : stock;
 
+  const derivedShop =
+    item?.shop && typeof item.shop === "object"
+      ? item.shop
+      : item?.shopId || item?.shopName
+        ? {
+            _id: item?.shopId || "",
+            id: item?.shopId || "",
+            name: item?.shopName || "",
+            handle: item?.shopHandle || "",
+            avatar: item?.shopAvatar || "",
+          }
+        : undefined;
+
   return {
     ...item,
     id,
@@ -50,6 +63,7 @@ const normalizeCartItem = (item, qty = 1) => {
     availableStock: stock,
     stock,
     qty,
+    shop: derivedShop,
   };
 };
 

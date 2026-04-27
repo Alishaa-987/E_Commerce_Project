@@ -366,38 +366,41 @@ const ShopPage = ({ section = "products" }) => {
 
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
+                to={`/product/${spotlightEvent.id}`}
+                className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0b0d] transition hover:-translate-y-0.5"
+              >
+                View event details
+                <FiArrowRight size={13} />
+              </Link>
+              <Link
                 to={
                   spotlightEvent.category
                     ? `/products?category=${encodeURIComponent(spotlightEvent.category)}`
                     : "/products"
                 }
-                className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#0b0b0d] transition hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white/70 transition hover:border-white/25 hover:text-white"
               >
                 Browse related products
                 <FiArrowRight size={13} />
               </Link>
-              <NavLink
-                to={`/shop/${handle}`}
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white/70 transition hover:border-white/25 hover:text-white"
-              >
-                Back to products
-                <FiArrowRight size={13} />
-              </NavLink>
             </div>
           </div>
 
           <div className="space-y-5">
-            <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[#111114] shadow-[0_24px_70px_rgba(0,0,0,0.35)]">
+            <Link
+              to={`/product/${spotlightEvent.id}`}
+              className="group block overflow-hidden rounded-[30px] border border-white/10 bg-[#111114] shadow-[0_24px_70px_rgba(0,0,0,0.35)] transition hover:border-emerald-300/30"
+            >
               {spotlightEvent.image ? (
                 <img
                   src={spotlightEvent.image}
                   alt={spotlightEvent.name}
-                  className="aspect-[4/3] w-full object-cover"
+                  className="aspect-[4/3] w-full object-cover transition duration-300 group-hover:scale-[1.02]"
                 />
               ) : (
                 <div className="aspect-[4/3] w-full bg-[radial-gradient(circle_at_top,rgba(52,211,153,0.18),transparent_55%),#111114]" />
               )}
-            </div>
+            </Link>
 
             <div className="rounded-[30px] border border-white/10 bg-[#111114] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.35)]">
               <p className="text-[10px] uppercase tracking-[0.24em] text-white/35">
@@ -417,9 +420,10 @@ const ShopPage = ({ section = "products" }) => {
         {extraEvents.length ? (
           <div className="grid gap-5 lg:grid-cols-2">
             {extraEvents.map((event) => (
-              <div
+              <Link
+                to={`/product/${event.id}`}
                 key={event.id}
-                className="rounded-[28px] border border-white/10 bg-[#111114] p-6 shadow-[0_22px_70px_rgba(0,0,0,0.38)]"
+                className="group rounded-[28px] border border-white/10 bg-[#111114] p-6 shadow-[0_22px_70px_rgba(0,0,0,0.38)] transition hover:border-emerald-300/30"
               >
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[10px] uppercase tracking-[0.24em] text-white/35">
@@ -433,7 +437,7 @@ const ShopPage = ({ section = "products" }) => {
                     {event.status}
                   </span>
                 </div>
-                <h3 className="mt-4 text-2xl font-Playfair font-semibold text-white">
+                <h3 className="mt-4 text-2xl font-Playfair font-semibold text-white transition group-hover:text-emerald-200">
                   {event.name}
                 </h3>
                 <p className="mt-3 text-sm leading-7 text-white/55">
@@ -447,7 +451,10 @@ const ShopPage = ({ section = "products" }) => {
                     {event.category}
                   </span>
                 </div>
-              </div>
+                <p className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-emerald-300">
+                  View full details <FiArrowRight size={14} />
+                </p>
+              </Link>
             ))}
           </div>
         ) : null}

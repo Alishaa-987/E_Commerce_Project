@@ -81,11 +81,9 @@ const Events = () => {
       : featuredEvent.endDate
   ).getTime();
   const showCountdown = Number.isFinite(countdownTarget) && countdownTarget > Date.now();
-  const primaryLink = featuredEvent.shopHandle
+  const detailsLink = `/product/${featuredEvent.id}`;
+  const shopLink = featuredEvent.shopHandle
     ? `/shop/${featuredEvent.shopHandle}`
-    : "/products";
-  const browseLink = featuredEvent.category
-    ? `/products?category=${encodeURIComponent(featuredEvent.category)}`
     : "/products";
   const countdownLabel =
     featuredEvent.status === "Scheduled" ? "Starts in" : "Sale ends in";
@@ -136,28 +134,28 @@ const Events = () => {
 
               <div className="flex flex-wrap gap-4">
                 <Link
-                  to={primaryLink}
+                  to={detailsLink}
                   className="flex items-center gap-2.5 rounded-xl bg-emerald-300 px-7 py-3.5 text-base font-semibold text-[#0b0b0d] transition hover:-translate-y-0.5"
                 >
-                  Visit shop <FiArrowRight size={16} />
+                  View event details <FiArrowRight size={16} />
                 </Link>
                 <Link
-                  to={browseLink}
+                  to={shopLink}
                   className="flex items-center gap-2.5 rounded-xl border border-white/15 px-7 py-3.5 text-base font-semibold text-white/70 transition hover:border-white/40 hover:text-white"
                 >
-                  Browse related products <FiArrowRight size={16} />
+                  Visit shop <FiArrowRight size={16} />
                 </Link>
               </div>
             </div>
 
             <div className="flex justify-center lg:justify-end">
-              <div className="relative">
+              <Link to={detailsLink} className="group relative block">
                 <div className="absolute -inset-5 rounded-3xl border border-emerald-300/10 bg-emerald-300/5" />
-                <div className="relative w-72 overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b0d] sm:w-80">
+                <div className="relative w-72 overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b0d] transition group-hover:border-emerald-300/35 sm:w-80">
                   <img
                     src={featuredEvent.image}
                     alt={featuredEvent.name}
-                    className="aspect-square w-full object-cover"
+                    className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.02]"
                   />
                   <div className="absolute right-4 top-4 rounded-xl bg-emerald-300 px-4 py-2 text-center">
                     <p className="text-xs font-bold uppercase text-[#0b0b0d]">
@@ -166,9 +164,11 @@ const Events = () => {
                   </div>
                 </div>
 
-                <div className="mt-4 rounded-2xl border border-white/10 bg-[#111114] p-5">
+                <div className="mt-4 rounded-2xl border border-white/10 bg-[#111114] p-5 transition group-hover:border-emerald-300/25">
                   <p className="mb-1.5 text-sm text-white/40">{featuredEvent.shopName}</p>
-                  <p className="mb-3 text-lg font-semibold text-white">{featuredEvent.name}</p>
+                  <p className="mb-3 text-lg font-semibold text-white transition group-hover:text-emerald-200">
+                    {featuredEvent.name}
+                  </p>
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-baseline gap-2">
                       <span className="text-xl font-bold text-white">
@@ -186,8 +186,11 @@ const Events = () => {
                     </div>
                   </div>
                   <p className="mt-4 text-sm text-white/35">{featuredEvent.window}</p>
+                  <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-300">
+                    Open full details <FiArrowRight size={14} />
+                  </p>
                 </div>
-              </div>
+              </Link>
             </div>
           </div>
         </div>

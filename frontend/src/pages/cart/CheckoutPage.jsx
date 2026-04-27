@@ -1,14 +1,18 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Link } from "react-router-dom";
-import { FiCheck, FiArrowLeft, FiLock } from "react-icons/fi";
+import { FiCheck, FiArrowLeft, FiLock, FiLoader } from "react-icons/fi";
 import { useDispatch, useSelector } from "react-redux";
+import { useStripe, useElements } from "@stripe/react-stripe-js";
 import axios from "axios";
 import AddressModal from "../../components/user/AddressModal";
 import SavedAddressRow from "../../components/user/SavedAddressRow";
+import StripeCardForm from "../../components/payment/StripeCardForm";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
 import { useCart } from "../../context/CartContext";
 import { addUserAddress } from "../../redux/actions/user";
+import { processPayment } from "../../redux/actions/payment";
+import { createOrder } from "../../redux/actions/order";
 import { server } from "../../server";
 
 const inputClass =
@@ -20,73 +24,44 @@ const splitUserName = (name = "") =>
     .trim()
     .split(/\s+/)
     .filter(Boolean);
-const fillContactFields = (currentForm, contactDefaults) => ({
-  ...currentForm,
-  firstName: contactDefaults.firstName || currentForm.firstName || "",
-  lastName: contactDefaults.lastName || currentForm.lastName || "",
-  email: contactDefaults.email || currentForm.email || "",
-  phone: contactDefaults.phone || currentForm.phone || "",
-});
 const fillAddressFields = (currentForm, address, contactDefaults) => {
-  const normalizedAddress = address?.address || address || {};
+  // Directly use address object without nested property assumption
+  if (!address) {
+    return currentForm;
+  }
+
+  // Helper to get non-empty value from address, fallback to contactDefaults
+  const getAddressField = (addressValue, contactValue = "") => {
+    const trimmed = String(addressValue || "").trim();
+    return trimmed || contactValue || "";
+  };
 
   return {
-    ...fillContactFields(currentForm, contactDefaults),
-    firstName:
-      normalizedAddress?.firstName ||
-      address?.firstName ||
-      contactDefaults.firstName ||
-      "",
-    lastName:
-      normalizedAddress?.lastName ||
-      address?.lastName ||
-      contactDefaults.lastName ||
-      currentForm.lastName ||
-      "",
-    phone:
-      normalizedAddress?.phone ||
-      address?.phone ||
-      contactDefaults.phone ||
-      currentForm.phone ||
-      "",
-    address1:
-      normalizedAddress?.address1 ||
-      normalizedAddress?.address ||
-      address?.address1 ||
-      address?.address ||
-      "",
-    address2: normalizedAddress?.address2 || "",
-    city:
-      normalizedAddress?.city ||
-      normalizedAddress?.state ||
-      address?.city ||
-      address?.state ||
-      "",
-    country:
-      normalizedAddress?.country ||
-      normalizedAddress?.countryName ||
-      address?.country ||
-      address?.countryName ||
-      "",
-    countryCode:
-      normalizedAddress?.countryCode ||
-      normalizedAddress?.country_iso_code ||
-      address?.countryCode ||
-      address?.country_iso_code ||
-      "",
-    zipCode:
-      normalizedAddress?.zipCode ||
-      normalizedAddress?.postalCode ||
-      normalizedAddress?.zip ||
-      address?.zipCode ||
-      address?.postalCode ||
-      address?.zip ||
-      "",
+    ...currentForm,
+    // Fill contact fields from address, with fallback to contactDefaults
+    firstName: getAddressField(address.firstName, contactDefaults.firstName),
+    lastName: getAddressField(address.lastName, contactDefaults.lastName),
+    email: getAddressField(address.email, contactDefaults.email),
+    phone: getAddressField(address.phone, contactDefaults.phone),
+    // Fill address fields from address object
+    address1: getAddressField(address.address1),
+    address2: getAddressField(address.address2),
+    city: getAddressField(address.city || address.state),
+    country: getAddressField(address.country || address.countryName),
+    countryCode: getAddressField(address.countryCode || address.country_iso_code),
+    zipCode: getAddressField(address.zipCode || address.postalCode || address.zip),
+    // Preserve payment fields from current form
+    cardNumber: currentForm.cardNumber || "",
+    expiry: currentForm.expiry || "",
+    cvv: currentForm.cvv || "",
+    cardName: currentForm.cardName || "",
   };
 };
 
 const CheckoutPage = () => {
   const dispatch = useDispatch();
+  const stripe = useStripe();
+  const elements = useElements();
   const { cartItems, cartTotal, clearCart } = useCart();
   const { user, addressActionLoading } = useSelector((state) => state.user);
   const [step, setStep] = useState(1); // 1: address, 2: payment, 3: success
@@ -118,6 +93,14 @@ const CheckoutPage = () => {
   const [couponDetails, setCouponDetails] = useState(null);
   const [couponLoading, setCouponLoading] = useState(false);
   const [confirmedTotal, setConfirmedTotal] = useState(0);
+  const [confirmedPaymentMethod, setConfirmedPaymentMethod] = useState("card");
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [cardState, setCardState] = useState({
+    ready: false,
+    complete: false,
+    error: "",
+  });
+  const createPaymentMethodFnRef = useRef(null);
 
   const savedAddresses = useMemo(() => user?.addresses || [], [user?.addresses]);
   const contactDefaults = useMemo(() => {
@@ -134,14 +117,23 @@ const CheckoutPage = () => {
   const shipping = cartTotal > 80 ? 0 : 9.99;
   const couponDiscount = Number(couponDetails?.discountAmount || 0);
   const total = Math.max(cartTotal + shipping - couponDiscount, 0);
+  const hasCardholderName = Boolean(form.cardName.trim());
+  const canSubmitCardPayment =
+    total <= 0
+      ? !isProcessingPayment
+      : hasCardholderName &&
+        cardState.ready &&
+        cardState.complete &&
+        !isProcessingPayment;
 
   useEffect(() => {
     setForm((current) => ({
       ...current,
-      firstName: current.firstName || contactDefaults.firstName,
-      lastName: current.lastName || contactDefaults.lastName,
-      email: current.email || contactDefaults.email,
-      phone: current.phone || contactDefaults.phone,
+      // Only fill from contactDefaults if form field is empty/whitespace
+      firstName: current.firstName?.trim() ? current.firstName : contactDefaults.firstName,
+      lastName: current.lastName?.trim() ? current.lastName : contactDefaults.lastName,
+      email: current.email?.trim() ? current.email : contactDefaults.email,
+      phone: current.phone?.trim() ? current.phone : contactDefaults.phone,
     }));
   }, [contactDefaults.firstName, contactDefaults.lastName, contactDefaults.email, contactDefaults.phone]);
 
@@ -290,20 +282,227 @@ const CheckoutPage = () => {
     setStep(2);
   };
 
-  const handleOrder = () => {
+  const buildShippingAddress = () => ({
+    firstName: form.firstName.trim(),
+    lastName: form.lastName.trim(),
+    email: form.email.trim(),
+    phone: form.phone.trim(),
+    address1: form.address1.trim(),
+    address2: form.address2.trim(),
+    city: form.city.trim(),
+    country: form.country.trim(),
+    countryCode: form.countryCode.trim(),
+    zipCode: form.zipCode.trim(),
+  });
+
+  const normalizeOrderCartItems = (items = []) =>
+    (Array.isArray(items) ? items : []).map((item) => {
+      const derivedShopId = String(item?.shopId || item?.shop?._id || item?.shop?.id || "").trim();
+      const derivedShop =
+        item?.shop && typeof item.shop === "object"
+          ? item.shop
+          : derivedShopId || item?.shopName
+            ? {
+                _id: derivedShopId,
+                id: derivedShopId,
+                name: item?.shopName || "",
+                handle: item?.shopHandle || "",
+                avatar: item?.shopAvatar || "",
+              }
+            : undefined;
+
+      return {
+        ...item,
+        shopId: derivedShopId || item?.shopId,
+        shop: derivedShop,
+      };
+    });
+
+  const buildOrderData = (paymentInfo, selectedPaymentMethod = paymentMethod) => ({
+    cart: normalizeOrderCartItems(cartItems),
+    shippingAddress: buildShippingAddress(),
+    paymentInfo,
+    totalPrice: total,
+    paymentMethod: selectedPaymentMethod,
+  });
+
+  const finalizeOrder = async (orderData) => {
+
+    const orderResult = await dispatch(createOrder(orderData));
+
+    if (orderResult.success) {
+      setConfirmedTotal(total);
+      setConfirmedPaymentMethod(orderData?.paymentMethod || paymentMethod);
+      clearCart();
+      setStep(3);
+      return true;
+    }
+
+    setError(orderResult.message || "Order creation failed.");
+    return false;
+  };
+
+  const handleOrder = async () => {
+
     if (paymentMethod === "card") {
-      if (!form.cardName || !form.cardNumber || !form.expiry || !form.cvv) {
-        setError("Please fill card name, number, expiry, and CVV.");
+      // Handle Stripe card payment
+      if (total <= 0) {
+        setIsProcessingPayment(true);
+        setError("");
+
+        try {
+          await finalizeOrder(
+            buildOrderData(
+              {
+                id: "",
+                status: "succeeded",
+                type: "card",
+                stripePaymentIntentId: "",
+              },
+              "card"
+            )
+          );
+        } catch (err) {
+          setError(err.message || "Order creation failed.");
+        } finally {
+          setIsProcessingPayment(false);
+        }
         return;
       }
+
+      if (!form.cardName || !form.cardName.trim()) {
+        setError("Please enter the cardholder name.");
+        return;
+      }
+
+      if (!stripe || !elements) {
+        setError("Payment system not ready. Please refresh and try again.");
+        return;
+      }
+
+      if (!createPaymentMethodFnRef.current || typeof createPaymentMethodFnRef.current !== "function") {
+        setError("Card information is not ready. Please try again.");
+        return;
+      }
+
+      if (!cardState.ready) {
+        setError("Card form is still loading. Please wait a moment and try again.");
+        return;
+      }
+
+      if (!cardState.complete) {
+        setError(cardState.error || "Please complete your card details.");
+        return;
+      }
+
+      setIsProcessingPayment(true);
+      setError("");
+
+      try {
+        // Step 1: Create Stripe payment intent
+        const amountInCents = Math.round(total * 100);
+        const paymentResponse = await dispatch(
+          processPayment({
+            amount: amountInCents,
+            cart: cartItems,
+            shippingAmount: shipping,
+            couponDiscount,
+            totalPrice: total,
+            currency: "usd",
+          })
+        );
+
+        if (!paymentResponse.success) {
+          setError(paymentResponse.message || "Payment processing failed.");
+          setIsProcessingPayment(false);
+          return;
+        }
+
+        const clientSecret = paymentResponse.clientSecret;
+        if (!clientSecret) {
+          setError("Payment session could not be created. Please try again.");
+          setIsProcessingPayment(false);
+          return;
+        }
+
+        // Step 2: Create payment method
+        let stripePaymentMethod;
+        try {
+          stripePaymentMethod = await createPaymentMethodFnRef.current();
+        } catch (pmError) {
+          setError(pmError.message || "Failed to create payment method.");
+          setIsProcessingPayment(false);
+          return;
+        }
+
+        if (!stripePaymentMethod) {
+          setError("Card validation failed. Please check your card details.");
+          setIsProcessingPayment(false);
+          return;
+        }
+
+        // Step 3: Confirm payment with Stripe
+        const { paymentIntent, error: confirmError } = await stripe.confirmCardPayment(
+          clientSecret,
+          {
+            payment_method: stripePaymentMethod.id,
+          }
+        );
+
+        if (confirmError) {
+          setError(confirmError.message);
+          setIsProcessingPayment(false);
+          return;
+        }
+
+        if (paymentIntent.status === "succeeded") {
+          await finalizeOrder(
+            buildOrderData(
+              {
+                id: paymentIntent.id,
+                status: paymentIntent.status,
+                type: "card",
+                stripePaymentIntentId: paymentIntent.id,
+              },
+              "card"
+            )
+          );
+        } else {
+          setError(`Payment failed with status: ${paymentIntent.status}`);
+        }
+      } catch (err) {
+        setError(err.message || "Payment processing failed. Please try again.");
+      } finally {
+        setIsProcessingPayment(false);
+      }
+    } else if (paymentMethod === "cod") {
+      // Handle COD orders without online payment capture.
+      try {
+        setIsProcessingPayment(true);
+        await finalizeOrder(
+          buildOrderData(
+            {
+              id: "",
+              status: total > 0 ? "pending" : "succeeded",
+              type: paymentMethod,
+              stripePaymentIntentId: "",
+            },
+            paymentMethod
+          )
+        );
+      } catch (err) {
+        setError(err.message || "Order creation failed.");
+      } finally {
+        setIsProcessingPayment(false);
+      }
+    } else {
+      setError("PayPal integration is not connected yet. Please use card or cash on delivery.");
     }
-    setError("");
-    setConfirmedTotal(total);
-    clearCart();
-    setStep(3);
   };
 
   if (step === 3) {
+    const isCashOnDelivery = confirmedPaymentMethod === "cod";
+
     return (
       <div className="min-h-screen bg-[#0b0b0d] text-white font-Poppins">
         <Navbar />
@@ -313,16 +512,24 @@ const CheckoutPage = () => {
               <FiCheck size={36} className="text-emerald-300" />
             </div>
             <h1 className="text-3xl font-Playfair font-semibold text-white">
-              Order confirmed!
+              {isCashOnDelivery ? "Order placed!" : "Order confirmed!"}
             </h1>
             <p className="text-white/50 text-sm leading-relaxed">
-              Your order has been placed and is being prepared. You'll receive a confirmation email shortly.
+              {isCashOnDelivery
+                ? "Your cash on delivery order has been placed. Please keep the amount ready when your package arrives."
+                : "Your order has been placed and is being prepared. You'll receive a confirmation email shortly."}
             </p>
             <div className="rounded-2xl border border-white/10 bg-[#111114] p-5 text-left">
               <p className="text-xs text-white/30 mb-3 uppercase tracking-widest">Order summary</p>
               <div className="flex justify-between text-sm text-white/60 mb-2">
-                <span>Total paid</span>
+                <span>{isCashOnDelivery ? "Amount due on delivery" : "Total paid"}</span>
                 <span className="text-white font-semibold">${confirmedTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm text-white/60 mb-2">
+                <span>Payment method</span>
+                <span className="text-white font-semibold">
+                  {isCashOnDelivery ? "Cash on Delivery" : "Card"}
+                </span>
               </div>
               <div className="flex justify-between text-sm text-white/60">
                 <span>Estimated delivery</span>
@@ -524,112 +731,126 @@ const CheckoutPage = () => {
                 <div className="space-y-4">
                   {[
                     { key: "card", label: "Pay with Debit/credit card" },
-                    { key: "paypal", label: "Pay with Paypal" },
+                    {
+                      key: "paypal",
+                      label: "Pay with PayPal",
+                      helper: "Coming soon",
+                      disabled: true,
+                    },
                     { key: "cod", label: "Cash on Delivery" },
                   ].map((m) => (
                     <div
                       key={m.key}
-                      className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3"
+                      className={`flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 ${
+                        m.disabled ? "opacity-55" : ""
+                      }`}
                     >
                       <input
                         type="radio"
                         name="payment"
                         value={m.key}
                         checked={paymentMethod === m.key}
-                        onChange={() => setPaymentMethod(m.key)}
+                        onChange={() => {
+                          if (!m.disabled) {
+                            setPaymentMethod(m.key);
+                            setError("");
+                          }
+                        }}
+                        disabled={m.disabled}
                         className="mt-1 accent-emerald-300"
                       />
-                      <div className="flex-1 text-sm text-white/80">{m.label}</div>
+                      <div className="flex flex-1 items-center justify-between gap-3">
+                        <div className="text-sm text-white/80">{m.label}</div>
+                        {m.helper ? (
+                          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/45">
+                            {m.helper}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   ))}
                 </div>
 
+                <p className="text-xs text-white/45">
+                  PayPal abhi connected nahi hai. Card aur cash on delivery checkout ready hain.
+                </p>
+
                 {paymentMethod === "card" && (
                   <div className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-white/50">Card Number</label>
-                        <input
-                          name="cardNumber"
-                          value={form.cardNumber}
-                          onChange={handleChange}
-                          placeholder="1234 5678 9012 3456"
-                          maxLength={19}
-                          className={inputClass}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-white/50">Exp Date</label>
-                        <input
-                          name="expiry"
-                          value={form.expiry}
-                          onChange={handleChange}
-                          placeholder="MM / YY"
-                          className={inputClass}
-                        />
-                      </div>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-white/50">Name on Card</label>
-                        <input
-                          name="cardName"
-                          value={form.cardName}
-                          onChange={handleChange}
-                          placeholder="Alisha Fatima"
-                          className={inputClass}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-white/50">Billing Address</label>
-                        <input
-                          name="address1"
-                          value={form.address1}
-                          onChange={handleChange}
-                          placeholder="123 Main Street"
-                          className={inputClass}
-                        />
-                      </div>
-                    </div>
+                    <StripeCardForm
+                      cardName={form.cardName}
+                      billingDetails={{
+                        email: form.email,
+                        phone: form.phone,
+                        address1: form.address1,
+                        address2: form.address2,
+                        city: form.city,
+                        country: form.country,
+                        countryCode: form.countryCode,
+                        zipCode: form.zipCode,
+                      }}
+                      onCardNameChange={(e) =>
+                        setForm((f) => ({ ...f, cardName: e.target.value }))
+                      }
+                      onCardStateChange={setCardState}
+                      onPaymentMethodReady={(fn) => {
+                        createPaymentMethodFnRef.current = fn;
+                      }}
+                      isProcessing={isProcessingPayment}
+                    />
+                    {!cardState.complete && !cardState.error ? (
+                      <p className="text-xs text-white/40">
+                        Enter your card details to activate secure payment.
+                      </p>
+                    ) : null}
                     <button
                       onClick={handleOrder}
-                      className="w-full rounded-xl bg-emerald-300 py-3 text-sm font-semibold text-[#0b0b0d] transition hover:-translate-y-0.5"
+                      disabled={!canSubmitCardPayment}
+                      className="w-full rounded-xl bg-emerald-300 py-3 text-sm font-semibold text-[#0b0b0d] transition hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      Submit
+                      {isProcessingPayment && <FiLoader size={16} className="animate-spin" />}
+                      {isProcessingPayment ? "Processing Payment..." : "Pay Now"}
                     </button>
                   </div>
                 )}
 
                 {paymentMethod === "paypal" && (
                   <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-                    You will be redirected to PayPal to complete your purchase.
+                    PayPal integration is coming soon. Please use card or cash on delivery for now.
                   </div>
                 )}
 
                 {paymentMethod === "cod" && (
                   <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-                    Pay in cash upon delivery. Please ensure the address above is correct.
+                    Pay in cash upon delivery. Please ensure the address above is correct and keep the order amount ready when it arrives.
                   </div>
                 )}
 
                 {error && <p className="text-sm text-red-300">{error}</p>}
 
                 <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={() => setStep(1)}
-                    className="flex-1 rounded-xl border border-white/15 py-3 text-sm text-white/60 hover:text-white transition"
-                  >
-                    &larr; Back
-                  </button>
-                  {paymentMethod !== "card" && (
-                    <button
-                      onClick={handleOrder}
-                      className="flex-1 rounded-xl bg-emerald-300 py-3 text-sm font-semibold text-[#0b0b0d] transition hover:-translate-y-0.5"
-                    >
-                      Confirm | ${total.toFixed(2)}
-                    </button>
-                  )}
-                </div>
+                   <button
+                     onClick={() => setStep(1)}
+                     disabled={isProcessingPayment}
+                     className="flex-1 rounded-xl border border-white/15 py-3 text-sm text-white/60 hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed"
+                   >
+                     &larr; Back
+                   </button>
+                   {paymentMethod !== "card" && (
+                     <button
+                       onClick={handleOrder}
+                       disabled={isProcessingPayment}
+                       className="flex-1 rounded-xl bg-emerald-300 py-3 text-sm font-semibold text-[#0b0b0d] transition hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                     >
+                       {isProcessingPayment && <FiLoader size={14} className="animate-spin" />}
+                       {isProcessingPayment
+                         ? "Processing..."
+                         : paymentMethod === "cod"
+                         ? `Place COD Order | $${total.toFixed(2)}`
+                         : `Confirm | $${total.toFixed(2)}`}
+                     </button>
+                   )}
+                 </div>
               </div>
             )}
           </div>

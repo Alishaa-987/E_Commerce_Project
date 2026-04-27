@@ -73,6 +73,23 @@ router.get(
   })
 );
 
+// Get single event details
+router.get(
+  "/get-event/:id",
+  catchAsyncError(async (req, res, next) => {
+    const event = await Event.findById(req.params.id);
+
+    if (!event) {
+      return next(new ErrorHandler("Event not found", 404));
+    }
+
+    res.status(200).json({
+      success: true,
+      event,
+    });
+  })
+);
+
 // Get all events for a seller/shop
 router.get(
   "/get-all-events-shop/:id",

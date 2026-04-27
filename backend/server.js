@@ -1,10 +1,12 @@
+const http = require("http");
+const { Server } = require("socket.io");
 const { connectionDatabase } = require("./db/Database");
 const app = require("./app");
 
-process.on("uncaughtException", (err)=>{
-    console.log(`Error: ${err.message}`)
-    console.log(`Shutting down the server due to uncaugh exception`)
-})
+process.on("uncaughtException", (err) => {
+    console.log(`Error: ${err.message}`);
+    console.log(`Shutting down the server due to uncaugh exception`);
+});
 
 // config
 if (process.env.NODE_ENV !== "PRODUCTION") {
@@ -13,18 +15,23 @@ if (process.env.NODE_ENV !== "PRODUCTION") {
     });
 }
 
-// conned db
+// connect db
 connectionDatabase();
 
 
 // create server
 
-const server = app.listen(process.env.PORT, () => {
-    console.log(
-        `Server is running on http://localhost:${process.env.PORT}`
-    )
-})
+io.on("connection", (socket) => {
+    console.log("🔌 Socket connected:", socket.id);
 
+    socket.on("disconnect", () => {
+        console.log("🔌 Socket disconnected:", socket.id);
+    });
+});
+
+const server = httpServer.listen(process.env.PORT, () => {
+    console.log(`Server is running on http://localhost:${process.env.PORT}`);
+});
 // unhandled promise rejection
 
 process.on("unhandledRejection", (err)=>{

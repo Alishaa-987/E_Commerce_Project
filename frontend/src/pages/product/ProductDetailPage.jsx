@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AiFillStar, AiOutlineStar } from "react-icons/ai";
+import { io } from "socket.io-client";
 import {
   FiHeart,
   FiMessageSquare,
@@ -13,8 +14,10 @@ import { useDispatch, useSelector } from "react-redux";
 import ProductCard from "../../components/cards/ProductCard";
 import Footer from "../../components/layout/Footer";
 import Navbar from "../../components/layout/Navbar";
+import ReviewForm from "../../components/product/ReviewForm";
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
+import { getEventDetails } from "../../redux/actions/event";
 import { getProductDetails } from "../../redux/actions/product";
 import { resolveAvailableStock, slugify } from "../../utils/marketplace";
 
@@ -35,13 +38,18 @@ const ProductDetailPage = () => {
   const [qty, setQty] = useState(1);
   const [selectedImage, setSelectedImage] = useState("");
   const [cartNotice, setCartNotice] = useState(null);
+  const [fallbackEvent, setFallbackEvent] = useState(null);
+  const [fallbackLoading, setFallbackLoading] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
 
   const { allProducts, productDetails, productDetailsLoading } = useSelector(
     (state) => state.products
   );
   const { allShops = [] } = useSelector((state) => state.seller);
+  const { isAuthenticated, user } = useSelector((state) => state.user);
+  const { orders: userOrders } = useSelector((state) => state.order);
 
-  const product = useMemo(
+  const matchedProduct = useMemo(
     () =>
       allProducts.find((item) => item.id === id || item._id === id) ||
       (productDetails?.id === id || productDetails?._id === id
@@ -49,16 +57,122 @@ const ProductDetailPage = () => {
         : null),
     [allProducts, id, productDetails]
   );
+  const product = matchedProduct || fallbackEvent;
+  const isEventItem = !matchedProduct && Boolean(fallbackEvent);
 
-  useEffect(() => {
-    if (!id || product) {
-      return;
-    }
-
-    dispatch(getProductDetails(id));
-  }, [dispatch, id, product]);
 
   const productId = product?.id || product?._id || "";
+  const socketRef = useRef(null);
+
+  // Find the order containing this product (for verified purchase review)
+  const productOrder = useMemo(() => {
+    if (!isAuthenticated || !userOrders?.length || !productId) {
+      return null;
+    }
+    return userOrders.find((order) =>
+      order.cart?.some(
+        (item) =>
+          item.product?.toString() === productId.toString() ||
+          item.id?.toString() === productId.toString() ||
+          item._id?.toString() === productId.toString()
+      )
+    );
+  }, [isAuthenticated, userOrders, productId]);
+
+  useEffect(() => {
+    setFallbackEvent(null);
+    setFallbackLoading(false);
+  }, [id]);
+
+  // Real-time review updates via Socket.IO
+  useEffect(() => {
+    if (!productId) return;
+
+    const socket = io("http://localhost:8000", {
+      path: "/socket.io",
+      withCredentials: true,
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 5,
+    });
+
+    socket.on("connect", () => {
+      console.log("✅ Review socket connected, ID:", socket.id);
+    });
+
+    socket.on("connect_error", (err) => {
+      console.log("⚠️ Socket connection error:", err.message);
+    });
+
+    socket.on("newReview", (data) => {
+      console.log("📨 New review received for product:", data.productId);
+      if (data.productId === productId) {
+        console.log("🔄 Refreshing product data...");
+        dispatch(getProductDetails(productId));
+      }
+    });
+
+    socket.on("productUpdated", (data) => {
+      console.log("📨 Product update received:", data);
+      if (data.productId === productId) {
+        console.log("🔄 Refreshing product data...");
+        dispatch(getProductDetails(productId));
+      }
+    });
+
+    socket.on("disconnect", () => {
+      console.log("⚠️ Review socket disconnected");
+    });
+
+    return () => {
+      console.log("Disconnecting socket...");
+      socket.disconnect();
+    };
+  }, [productId, dispatch]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!id || matchedProduct) {
+      return undefined;
+    }
+
+    const loadDetails = async () => {
+      setFallbackLoading(true);
+      setFallbackEvent(null);
+
+      const productResult = await dispatch(getProductDetails(id));
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (productResult?.success) {
+        setFallbackLoading(false);
+        return;
+      }
+
+      const eventResult = await dispatch(getEventDetails(id));
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (eventResult?.success) {
+        setFallbackEvent(eventResult.event);
+      }
+
+      setFallbackLoading(false);
+    };
+
+    loadDetails();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [dispatch, id, matchedProduct]);
+
   const stock = resolveAvailableStock(product);
   const soldOut = stock <= 0;
   const tags = product?.tags || [];
@@ -150,10 +264,10 @@ const ProductDetailPage = () => {
     return () => window.clearTimeout(timer);
   }, [cartNotice]);
 
-  if (productDetailsLoading && !product) {
+  if ((productDetailsLoading || fallbackLoading) && !product) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0b0b0d] font-Poppins text-white">
-        <p className="font-Playfair text-xl text-white/40">Loading product...</p>
+        <p className="font-Playfair text-xl text-white/40">Loading details...</p>
       </div>
     );
   }
@@ -198,11 +312,21 @@ const ProductDetailPage = () => {
   const detailItems = [
     {
       label: "Availability",
-      value: soldOut ? "Currently unavailable" : "In stock - ready to ship",
+      value: soldOut
+        ? "Currently unavailable"
+        : isEventItem
+        ? "Offer is active and ready to order"
+        : "In stock - ready to ship",
     },
-    { label: "Orders", value: `${product.sold || 0}+ sold` },
+    {
+      label: isEventItem ? "Campaign" : "Orders",
+      value: isEventItem ? product.status || "Live" : `${product.sold || 0}+ sold`,
+    },
     { label: "Category", value: product.category || "Uncategorized" },
-    { label: "Shipping", value: "Dispatch in 2-3 business days" },
+    {
+      label: isEventItem ? "Offer Window" : "Shipping",
+      value: isEventItem ? product.window || "Schedule pending" : "Dispatch in 2-3 business days",
+    },
     { label: "Returns", value: "30-day easy returns" },
     { label: "Protection", value: "Secure checkout + buyer protection" },
   ];
@@ -242,7 +366,7 @@ const ProductDetailPage = () => {
       type: result.success ? "success" : "error",
       text: result.success
         ? qty === 1
-          ? "Product added to cart."
+          ? "Item added to cart."
           : `${qty} items added to cart.`
         : result.message,
     });
@@ -344,7 +468,7 @@ const ProductDetailPage = () => {
               </div>
               <span className="text-sm text-white/70">{product.rating || 0}</span>
               <span className="text-sm text-white/30">
-                ({product.reviews || 0} reviews)
+                ({product.reviews?.length || 0} reviews)
               </span>
               <span className="text-sm text-white/30">|</span>
               <span className="text-sm text-white/30">
@@ -609,27 +733,113 @@ const ProductDetailPage = () => {
           </div>
         </div>
 
-        <div className="mt-16">
-          <div className="mb-6">
-            <p className="mb-2 text-[10px] uppercase tracking-widest text-white/30">
-              Customer feedback
-            </p>
-            <h2 className="font-Playfair text-2xl font-semibold text-white">
-              Reviews
-            </h2>
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-[#111114] p-8 text-center">
-            <h3 className="font-Playfair text-2xl font-semibold text-white">
-              No reviews yet
-            </h3>
-            <p className="mt-3 text-sm text-white/50">
-              This product does not have a real backend review source yet, so
-              no mock reviews are shown here.
-            </p>
-          </div>
-        </div>
+            <div className="mt-16">
+            <div className="mb-6">
+              <p className="mb-2 text-[10px] uppercase tracking-widest text-white/30">
+                Customer feedback
+              </p>
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="font-Playfair text-2xl font-semibold text-white">
+                  Reviews
+                </h2>
+                <div className="flex items-center gap-2">
+                  <AiFillStar size={16} className="text-emerald-300" />
+                  <span className="text-lg font-semibold text-white">{product.rating || 0}</span>
+                  <span className="text-sm text-white/40">({product.reviews ? product.reviews.length : 0})</span>
+                </div>
+              </div>
+            </div>
 
-        {related.length > 0 && (
+            {isAuthenticated ? (
+              <button
+                onClick={() => setShowReviewForm(true)}
+                className="w-full rounded-xl border border-emerald-300/40 bg-emerald-300/10 px-4 py-3 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-300/20 mb-6"
+              >
+                Write a Review
+              </button>
+            ) : (
+              <div className="mb-8 rounded-3xl border border-white/10 bg-[#111114] p-6 text-center">
+                <p className="text-white/50">Please log in to leave a review.</p>
+              </div>
+            )}
+
+            {showReviewForm && isAuthenticated && (
+              <div className="mb-8 rounded-3xl border border-white/10 bg-[#111114] p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-medium text-white">Write a review</h3>
+                  <button
+                    onClick={() => setShowReviewForm(false)}
+                    className="text-white/50 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <ReviewForm
+                  product={product}
+                  orderId={productOrder?._id}
+                  onReviewAdded={() => {
+                    dispatch(getProductDetails(productId));
+                    setShowReviewForm(false);
+                  }}
+                />
+              </div>
+            )}
+
+            <div className="space-y-4" id="reviews-container">
+             {(product.reviews || []).map((review, index) => (
+               <div key={index} className="rounded-2xl border border-white/10 bg-[#111114]/50 p-6">
+                 <div className="flex items-start justify-between gap-4">
+                   <div className="flex items-center gap-3">
+                     {review.user?.avatar ? (
+                       <img src={review.user.avatar} alt={review.user.name} className="h-10 w-10 rounded-full object-cover" />
+                     ) : (
+                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-300/10">
+                         <span className="text-sm font-medium text-emerald-300">
+                           {(review.user?.name || "U")[0]}
+                         </span>
+                       </div>
+                     )}
+                     <div>
+                       <p className="font-medium text-white">{review.user?.name || "Anonymous"}</p>
+                       <p className="text-xs text-white/40">
+                         {review.hasPurchased && <span className="text-emerald-300">✓ Verified Purchase</span>}
+                         {!review.hasPurchased && "—"}
+                       </p>
+                     </div>
+                   </div>
+                   <div className="flex items-center gap-1">
+                     {[1, 2, 3, 4, 5].map((star) => (
+                       <AiFillStar
+                         key={star}
+                         size={14}
+                         className={star <= review.rating ? "text-emerald-300" : "text-white/10"}
+                       />
+                     ))}
+                   </div>
+                 </div>
+                 <p className="mt-4 text-sm leading-relaxed text-white/70">{review.message}</p>
+                 <p className="mt-3 text-xs text-white/30">
+                   {new Date(review.createdAt).toLocaleDateString(undefined, {
+                     year: "numeric",
+                     month: "long",
+                     day: "numeric",
+                   })}
+                 </p>
+               </div>
+             ))}
+
+             {(product.reviews || []).length === 0 && (
+               <div className="rounded-3xl border border-white/10 bg-[#111114] p-8 text-center">
+                 <h3 className="font-Playfair text-xl font-semibold text-white">No reviews yet</h3>
+                 <p className="mt-3 text-sm text-white/50">
+                   Be the first to share your experience with this product.
+                 </p>
+               </div>
+             )}
+           </div>
+         </div>
+
+         {related.length > 0 && (
           <div className="mt-16">
             <div className="mb-6">
               <p className="mb-2 text-[10px] uppercase tracking-widest text-white/30">

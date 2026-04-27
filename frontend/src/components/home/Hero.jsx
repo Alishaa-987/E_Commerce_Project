@@ -32,7 +32,7 @@ const Hero = () => {
       : "A storefront ready for real products, real sellers, and live campaigns.";
 
   return (
-    <section className="relative isolate min-h-[600px] overflow-hidden pb-12 pt-32">
+    <section className="relative isolate min-h-[600px] overflow-hidden pb-12 pt-40">
       <div className="pointer-events-none absolute -top-20 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-emerald-300/10 blur-[140px] animate-glow" />
       <div className="pointer-events-none absolute right-0 top-16 h-60 w-60 translate-x-1/3 rounded-full bg-white/5 blur-[100px] animate-glow" />
 

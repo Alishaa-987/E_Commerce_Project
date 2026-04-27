@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   FiUser,
   FiPackage,
@@ -28,74 +28,156 @@ import {
   updateUserPassword,
   updateUserProfile,
 } from "../../redux/actions/user";
+import { getUserOrders } from "../../redux/actions/order";
 import { clearUserFeedback } from "../../redux/reducers/user";
 import { useWishlist } from "../../context/WishlistContext";
 import ProductCard from "../../components/cards/ProductCard";
 import { toAbsoluteAssetUrl } from "../../utils/marketplace";
+import MultiShopOrderBreakdown from "../../components/order/MultiShopOrderBreakdown";
+import ReviewForm from "../../components/product/ReviewForm";
+import RefundRequestForm from "../../components/order/RefundRequestForm";
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/10 transition";
 
+const validProfileTabs = new Set([
+  "profile",
+  "orders",
+  "refunds",
+  "inbox",
+  "track",
+  "payments",
+  "address",
+  "wishlist",
+  "logout",
+]);
+
 const statusStyles = {
-  Processing: {
+  pending: {
     pill: "bg-amber-300/20 text-amber-200 border border-amber-300/30",
     dot: "bg-amber-300",
   },
-  Shipped: {
+  processing: {
     pill: "bg-sky-300/20 text-sky-200 border border-sky-300/30",
     dot: "bg-sky-300",
   },
-  Delivered: {
-    pill: "bg-emerald-300/20 text-emerald-200 border border-emerald-300/30",
-    dot: "bg-emerald-300",
-  },
-  "In Transit": {
+  shipped: {
     pill: "bg-sky-300/20 text-sky-200 border border-sky-300/30",
     dot: "bg-sky-300",
   },
-  "Out for Delivery": {
+  delivered: {
     pill: "bg-emerald-300/20 text-emerald-200 border border-emerald-300/30",
     dot: "bg-emerald-300",
   },
-  "Label Created": {
+  "in transit": {
+    pill: "bg-sky-300/20 text-sky-200 border border-sky-300/30",
+    dot: "bg-sky-300",
+  },
+  "out for delivery": {
+    pill: "bg-emerald-300/20 text-emerald-200 border border-emerald-300/30",
+    dot: "bg-emerald-300",
+  },
+  "label created": {
     pill: "bg-white/10 text-white border border-white/20",
     dot: "bg-white/40",
   },
-  Cancelled: {
+  cancelled: {
     pill: "bg-rose-300/20 text-rose-200 border border-rose-300/30",
     dot: "bg-rose-300",
   },
 };
 
-const mockOrders = [
-  {
-    id: "7463-HVBF-28820",
-    status: "Processing",
-    items: 1,
-    total: 120,
-    currency: "USD",
-    date: "Mar 17, 2026",
-    updated: "Mar 16, 2026",
-  },
-  {
-    id: "8420-KJTR-30002",
-    status: "Shipped",
-    items: 3,
-    total: 342,
-    currency: "USD",
-    date: "Mar 12, 2026",
-    updated: "Mar 15, 2026",
-  },
-  {
-    id: "4200-ZXCV-90011",
-    status: "Delivered",
-    items: 2,
-    total: 199,
-    currency: "USD",
-    date: "Feb 28, 2026",
-    updated: "Mar 02, 2026",
-  },
-];
+const getValidProfileTab = (value = "") =>
+  validProfileTabs.has(value) && value !== "logout" ? value : "profile";
+
+const formatStatusLabel = (value = "") =>
+  String(value || "pending")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const getStatusStyle = (status = "") =>
+  statusStyles[String(status || "pending").trim().toLowerCase()] || {
+    pill: "bg-white/10 text-white border border-white/10",
+    dot: "bg-white/40",
+  };
+
+const formatReadableDate = (value, fallback = "Recently") => {
+  if (!value) {
+    return fallback;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return fallback;
+  }
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const formatOrderDisplayId = (value = "") =>
+  `ORD-${String(value || "").slice(-8).toUpperCase()}`;
+
+const formatOrderCurrency = (value = 0) => `USD $${Number(value || 0).toFixed(2)}`;
+
+const getOrderItemCount = (order = {}) => {
+  if (Number(order?.itemCount || 0) > 0) {
+    return Number(order.itemCount || 0);
+  }
+
+  if (!Array.isArray(order?.cart)) {
+    return 0;
+  }
+
+  return order.cart.reduce((sum, item) => sum + Number(item?.qty || 1), 0);
+};
+
+const getPaymentMethodLabel = (value = "") => {
+  const normalizedValue = String(value || "").trim().toLowerCase();
+
+  if (normalizedValue === "cod") {
+    return "Cash on Delivery";
+  }
+
+  if (normalizedValue === "card") {
+    return "Card";
+  }
+
+  if (normalizedValue === "paypal") {
+    return "PayPal";
+  }
+
+  return formatStatusLabel(normalizedValue || "card");
+};
+
+const getPaymentStatusLabel = (order = {}) => {
+  if (String(order?.paymentMethod || "").trim().toLowerCase() === "cod") {
+    return String(order?.paymentStatus || "").trim().toLowerCase() === "pending"
+      ? "Pay on Delivery"
+      : formatStatusLabel(order?.paymentStatus);
+  }
+
+  return formatStatusLabel(order?.paymentStatus || "pending");
+};
+
+const getOrderBreakdown = (order = {}) => {
+  if (Array.isArray(order?.shopOrders) && order.shopOrders.length) {
+    return order.shopOrders;
+  }
+
+  return [
+    {
+      shopId: order?.shopId || "",
+      shopName: order?.shopName || "Shop",
+      items: order?.cart || [],
+      subTotal: Number(order?.subTotal || order?.totalPrice || 0),
+      status: order?.orderStatus || "pending",
+    },
+  ];
+};
 
 const mockRefunds = [
   {
@@ -120,33 +202,9 @@ const mockRefunds = [
   },
 ];
 
-const mockTracking = [
-  {
-    id: "TRK-785221",
-    orderId: "7463-HVBF-28820",
-    status: "In Transit",
-    items: 1,
-    total: 120,
-    currency: "USD",
-    carrier: "DHL Express",
-    eta: "Mar 20, 2026",
-    updated: "Mar 17, 2026",
-  },
-  {
-    id: "TRK-900144",
-    orderId: "8420-KJTR-30002",
-    status: "Out for Delivery",
-    items: 3,
-    total: 342,
-    currency: "USD",
-    carrier: "UPS",
-    eta: "Mar 18, 2026",
-    updated: "Mar 17, 2026",
-  },
-];
-
 const ProfilePage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const dispatch = useDispatch();
   const {
     user,
@@ -157,9 +215,14 @@ const ProfilePage = () => {
     addressActionId,
     successMessage,
   } = useSelector((state) => state.user);
+  const { orders: userOrders, ordersLoading, ordersError } = useSelector(
+    (state) => state.order
+  );
   const { wishlist } = useWishlist();
 
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState(() =>
+    getValidProfileTab(searchParams.get("tab") || "")
+  );
   const [profile, setProfile] = useState({
     name: user?.name || "",
     email: user?.email || "",
@@ -175,10 +238,27 @@ const ProfilePage = () => {
   });
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
-  const [selectedOrder, setSelectedOrder] = useState(mockOrders[0]);
+  const [selectedOrderId, setSelectedOrderId] = useState("");
   const [selectedRefund, setSelectedRefund] = useState(mockRefunds[0]);
-  const [selectedTrack, setSelectedTrack] = useState(mockTracking[0]);
+  const [selectedTrackId, setSelectedTrackId] = useState("");
+  const [isReviewModalOpen, setReviewModalOpen] = useState(false);
+  const [isRefundModalOpen, setRefundModalOpen] = useState(false);
+  const [requestingRefundItem, setRequestingRefundItem] = useState(null);
+  const [reviewingItem, setReviewingItem] = useState(null);
   const savedAddresses = user?.addresses || [];
+
+  const selectedOrder = useMemo(
+    () => userOrders.find((order) => order._id === selectedOrderId) || null,
+    [selectedOrderId, userOrders]
+  );
+  const trackableOrders = useMemo(
+    () => userOrders.filter((order) => String(order?.orderStatus || "").toLowerCase() !== "cancelled"),
+    [userOrders]
+  );
+  const selectedTrack = useMemo(
+    () => trackableOrders.find((order) => order._id === selectedTrackId) || null,
+    [selectedTrackId, trackableOrders]
+  );
 
   const tabs = useMemo(
     () => [
@@ -233,6 +313,47 @@ const ProfilePage = () => {
     return () => window.clearTimeout(timer);
   }, [addressActionError, dispatch, profileUpdateError, successMessage]);
 
+  useEffect(() => {
+    const nextTab = getValidProfileTab(searchParams.get("tab") || "");
+
+    if (nextTab !== activeTab) {
+      setActiveTab(nextTab);
+    }
+  }, [activeTab, searchParams]);
+
+  useEffect(() => {
+    if (!user?._id) {
+      return;
+    }
+
+    dispatch(getUserOrders());
+  }, [dispatch, user?._id]);
+
+  useEffect(() => {
+    if (!userOrders.length) {
+      setSelectedOrderId("");
+      setSelectedTrackId("");
+      return;
+    }
+
+    setSelectedOrderId((current) =>
+      userOrders.some((order) => order._id === current) ? current : userOrders[0]._id
+    );
+  }, [userOrders]);
+
+  useEffect(() => {
+    if (!trackableOrders.length) {
+      setSelectedTrackId("");
+      return;
+    }
+
+    setSelectedTrackId((current) =>
+      trackableOrders.some((order) => order._id === current)
+        ? current
+        : trackableOrders[0]._id
+    );
+  }, [trackableOrders]);
+
   const handleAvatar = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -273,6 +394,10 @@ const ProfilePage = () => {
         confirmPassword: "",
       });
     }
+  };
+
+  const refreshOrders = () => {
+    dispatch(getUserOrders());
   };
 
   const handleLogout = async () => {
@@ -413,82 +538,146 @@ const ProfilePage = () => {
               <p className="text-[10px] uppercase tracking-widest text-white/30 mb-1">Your orders</p>
               <h2 className="text-xl font-Playfair font-semibold text-white">Order history</h2>
             </div>
-            <span className="text-xs text-white/40">{mockOrders.length} orders</span>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-[#0f0f12] overflow-hidden">
-            <div className="grid grid-cols-4 gap-3 px-4 py-3 text-[11px] uppercase tracking-widest text-white/30">
-              <span>Order ID</span>
-              <span>Status</span>
-              <span className="text-center">Items Qty</span>
-              <span className="text-right">Total</span>
-            </div>
-            <div className="divide-y divide-white/5">
-              {mockOrders.map((order) => {
-                const isActive = selectedOrder?.id === order.id;
-                const style =
-                  statusStyles[order.status] || {
-                    pill: "bg-white/10 text-white border border-white/10",
-                    dot: "bg-white/40",
-                  };
-                return (
-                  <button
-                    key={order.id}
-                    onClick={() => setSelectedOrder(order)}
-                    className={`grid w-full grid-cols-4 items-center gap-3 px-4 py-4 text-left transition ${
-                      isActive
-                        ? "bg-white/5 border-l-2 border-emerald-300/60 shadow-[0_10px_40px_rgba(0,0,0,0.35)]"
-                        : "hover:bg-white/5"
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">{order.id}</p>
-                      <p className="text-[11px] text-white/40">{order.date}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${style.dot}`} />
-                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${style.pill}`}>
-                        {order.status}
-                      </span>
-                    </div>
-                    <p className="text-sm text-white text-center">{order.items}</p>
-                    <div className="flex items-center justify-end gap-2">
-                      <span className="text-sm font-semibold text-white">
-                        {order.currency} ${order.total.toFixed(2)}
-                      </span>
-                      <FiArrowRight size={14} className="text-white/40" />
-                    </div>
-                  </button>
-                );
-              })}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={refreshOrders}
+                disabled={ordersLoading}
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-white/60 hover:text-white hover:bg-white/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FiRefreshCw className={`text-sm ${ordersLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+              <span className="text-xs text-white/40">
+                {ordersLoading ? "Loading..." : `${userOrders.length} orders`}
+              </span>
             </div>
           </div>
 
-          {selectedOrder && (
-            <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/5 p-4">
-              <p className="text-[10px] uppercase tracking-widest text-emerald-200 mb-3">Selected order</p>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Order ID</p>
-                  <p className="text-sm font-semibold text-white truncate">{selectedOrder.id}</p>
+          {ordersError ? <p className="text-sm text-rose-300">{ordersError}</p> : null}
+
+          {ordersLoading ? (
+            <div className="rounded-xl border border-white/10 bg-[#0f0f12] px-4 py-5 text-sm text-white/55">
+              Loading your latest orders...
+            </div>
+          ) : !userOrders.length ? (
+            <div className="rounded-xl border border-white/10 bg-[#0f0f12] px-4 py-5 text-sm text-white/55">
+              No orders yet. Your placed orders, including cash on delivery orders, will appear here.
+            </div>
+          ) : (
+            <>
+              <div className="rounded-xl border border-white/10 bg-[#0f0f12] overflow-hidden">
+                <div className="grid grid-cols-4 gap-3 px-4 py-3 text-[11px] uppercase tracking-widest text-white/30">
+                  <span>Order ID</span>
+                  <span>Status</span>
+                  <span className="text-center">Items Qty</span>
+                  <span className="text-right">Total</span>
                 </div>
-                <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Status</p>
-                  <p className="text-sm font-semibold text-white">{selectedOrder.status}</p>
-                </div>
-                <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Items Qty</p>
-                  <p className="text-sm font-semibold text-white">{selectedOrder.items}</p>
-                </div>
-                <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Total</p>
-                  <p className="text-sm font-semibold text-white">
-                    {selectedOrder.currency} ${selectedOrder.total.toFixed(2)}
-                  </p>
+                <div className="divide-y divide-white/5">
+                  {userOrders.map((order) => {
+                    const isActive = selectedOrder?._id === order._id;
+                    const style = getStatusStyle(order?.orderStatus);
+
+                    return (
+                      <button
+                        key={order._id}
+                        onClick={() => setSelectedOrderId(order._id)}
+                        className={`grid w-full grid-cols-4 items-center gap-3 px-4 py-4 text-left transition ${
+                          isActive
+                            ? "bg-white/5 border-l-2 border-emerald-300/60 shadow-[0_10px_40px_rgba(0,0,0,0.35)]"
+                            : "hover:bg-white/5"
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">
+                            {formatOrderDisplayId(order._id)}
+                          </p>
+                          <p className="text-[11px] text-white/40">
+                            {order?.shopName || "Shop"} · {formatReadableDate(order?.createdAt)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`h-2 w-2 rounded-full ${style.dot}`} />
+                          <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${style.pill}`}>
+                            {formatStatusLabel(order?.orderStatus)}
+                          </span>
+                        </div>
+                        <p className="text-sm text-white text-center">{getOrderItemCount(order)}</p>
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="text-sm font-semibold text-white">
+                            {formatOrderCurrency(order?.totalPrice)}
+                          </span>
+                          <FiArrowRight size={14} className="text-white/40" />
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <p className="mt-3 text-xs text-white/60">Last updated: {selectedOrder.updated}</p>
-            </div>
+
+              {selectedOrder ? (
+                <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/5 p-4 space-y-4">
+                  <p className="text-[10px] uppercase tracking-widest text-emerald-200">Selected order</p>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
+                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Order ID</p>
+                      <p className="text-sm font-semibold text-white truncate">
+                        {formatOrderDisplayId(selectedOrder._id)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
+                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Shop</p>
+                      <p className="text-sm font-semibold text-white">{selectedOrder.shopName || "Shop"}</p>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
+                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Status</p>
+                      <p className="text-sm font-semibold text-white">
+                        {formatStatusLabel(selectedOrder.orderStatus)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
+                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Payment</p>
+                      <p className="text-sm font-semibold text-white">
+                        {getPaymentMethodLabel(selectedOrder.paymentMethod)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
+                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Total</p>
+                      <p className="text-sm font-semibold text-white">
+                        {formatOrderCurrency(selectedOrder.totalPrice)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3 text-sm text-white/70">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span>Payment status: {getPaymentStatusLabel(selectedOrder)}</span>
+                      <span>Last updated: {formatReadableDate(selectedOrder.updatedAt)}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {(selectedOrder.cart || []).map((item) => (
+                      <div
+                        key={item._id}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-white/5 bg-[#0b0b0d] p-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={toAbsoluteAssetUrl(item.images?.[0])}
+                            alt={item.name}
+                            className="h-12 w-12 rounded-md object-cover"
+                          />
+                          <div>
+                            <p className="text-sm font-medium text-white">{item.name}</p>
+                            <p className="text-xs text-white/40">
+                              {formatOrderCurrency(item.discountPrice)} x {item.qty}
+                            </p>
+                          </div>
+                        </div>
+
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </>
           )}
         </div>
       );
@@ -595,96 +784,112 @@ const ProfilePage = () => {
               <p className="text-[10px] uppercase tracking-widest text-white/30 mb-1">Tracking</p>
               <h2 className="text-xl font-Playfair font-semibold text-white">Track orders</h2>
             </div>
-            <span className="text-xs text-white/40">{mockTracking.length} shipments</span>
+            <span className="text-xs text-white/40">
+              {ordersLoading ? "Loading..." : `${trackableOrders.length} shipments`}
+            </span>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-[#0f0f12] overflow-hidden">
-            <div className="grid grid-cols-5 gap-3 px-4 py-3 text-[11px] uppercase tracking-widest text-white/30">
-              <span>Tracking ID</span>
-              <span>Status</span>
-              <span className="text-center">Items</span>
-              <span className="text-right">Total</span>
-              <span className="text-right">ETA</span>
-            </div>
-            <div className="divide-y divide-white/5">
-              {mockTracking.map((track) => {
-                const isActive = selectedTrack?.id === track.id;
-                const style =
-                  statusStyles[track.status] || {
-                    pill: "bg-white/10 text-white border border-white/10",
-                    dot: "bg-white/40",
-                  };
-                return (
-                  <button
-                    key={track.id}
-                    onClick={() => setSelectedTrack(track)}
-                    className={`grid w-full grid-cols-5 items-center gap-3 px-4 py-4 text-left transition ${
-                      isActive
-                        ? "bg-white/5 border-l-2 border-emerald-300/60 shadow-[0_10px_40px_rgba(0,0,0,0.35)]"
-                        : "hover:bg-white/5"
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">{track.id}</p>
-                      <p className="text-[11px] text-white/40">Order {track.orderId}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${style.dot}`} />
-                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${style.pill}`}>
-                        {track.status}
-                      </span>
-                    </div>
-                    <p className="text-sm text-white text-center">{track.items}</p>
-                    <p className="text-sm font-semibold text-white text-right">
-                      {track.currency} ${track.total.toFixed(2)}
-                    </p>
-                    <div className="flex items-center justify-end gap-1 text-sm text-white">
-                      <FiClock size={13} className="text-white/40" />
-                      <span>{track.eta}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          {ordersError ? <p className="text-sm text-rose-300">{ordersError}</p> : null}
 
-          {selectedTrack && (
-            <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/5 p-4 space-y-3">
-              <p className="text-[10px] uppercase tracking-widest text-emerald-200">Selected shipment</p>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Tracking ID</p>
-                  <p className="text-sm font-semibold text-white">{selectedTrack.id}</p>
+          {ordersLoading ? (
+            <div className="rounded-xl border border-white/10 bg-[#0f0f12] px-4 py-5 text-sm text-white/55">
+              Loading shipment updates...
+            </div>
+          ) : !trackableOrders.length ? (
+            <div className="rounded-xl border border-white/10 bg-[#0f0f12] px-4 py-5 text-sm text-white/55">
+              No active orders to track yet.
+            </div>
+          ) : (
+            <>
+              <div className="rounded-xl border border-white/10 bg-[#0f0f12] overflow-hidden">
+                <div className="grid grid-cols-5 gap-3 px-4 py-3 text-[11px] uppercase tracking-widest text-white/30">
+                  <span>Order ID</span>
+                  <span>Shop</span>
+                  <span>Status</span>
+                  <span className="text-center">Items</span>
+                  <span className="text-right">Updated</span>
                 </div>
-                <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Order</p>
-                  <p className="text-sm font-semibold text-white">{selectedTrack.orderId}</p>
-                </div>
-                <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Status</p>
-                  <p className="text-sm font-semibold text-white">{selectedTrack.status}</p>
-                </div>
-                <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">ETA</p>
-                  <p className="text-sm font-semibold text-white">{selectedTrack.eta}</p>
-                </div>
-                <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Carrier</p>
-                  <p className="text-sm font-semibold text-white">{selectedTrack.carrier}</p>
-                </div>
-                <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Items Qty</p>
-                  <p className="text-sm font-semibold text-white">{selectedTrack.items}</p>
-                </div>
-                <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Total</p>
-                  <p className="text-sm font-semibold text-white">
-                    {selectedTrack.currency} ${selectedTrack.total.toFixed(2)}
-                  </p>
+                <div className="divide-y divide-white/5">
+                  {trackableOrders.map((order) => {
+                    const isActive = selectedTrack?._id === order._id;
+                    const style = getStatusStyle(order?.orderStatus);
+
+                    return (
+                      <button
+                        key={order._id}
+                        onClick={() => setSelectedTrackId(order._id)}
+                        className={`grid w-full grid-cols-5 items-center gap-3 px-4 py-4 text-left transition ${
+                          isActive
+                            ? "bg-white/5 border-l-2 border-emerald-300/60 shadow-[0_10px_40px_rgba(0,0,0,0.35)]"
+                            : "hover:bg-white/5"
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">
+                            {formatOrderDisplayId(order._id)}
+                          </p>
+                          <p className="text-[11px] text-white/40">
+                            {formatOrderCurrency(order?.totalPrice)}
+                          </p>
+                        </div>
+                        <p className="text-sm text-white/70 truncate">{order?.shopName || "Shop"}</p>
+                        <div className="flex items-center gap-2">
+                          <span className={`h-2 w-2 rounded-full ${style.dot}`} />
+                          <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${style.pill}`}>
+                            {formatStatusLabel(order?.orderStatus)}
+                          </span>
+                        </div>
+                        <p className="text-sm text-white text-center">{getOrderItemCount(order)}</p>
+                        <div className="flex items-center justify-end gap-1 text-sm text-white">
+                          <FiClock size={13} className="text-white/40" />
+                          <span>{formatReadableDate(order?.updatedAt)}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <p className="text-xs text-white/60">Last update: {selectedTrack.updated}</p>
-            </div>
+
+              {selectedTrack ? (
+                <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/5 p-4 space-y-4">
+                  <p className="text-[10px] uppercase tracking-widest text-emerald-200">Selected shipment</p>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
+                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Order ID</p>
+                      <p className="text-sm font-semibold text-white">
+                        {formatOrderDisplayId(selectedTrack._id)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
+                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Shop</p>
+                      <p className="text-sm font-semibold text-white">{selectedTrack.shopName || "Shop"}</p>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
+                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Status</p>
+                      <p className="text-sm font-semibold text-white">
+                        {formatStatusLabel(selectedTrack.orderStatus)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
+                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Payment</p>
+                      <p className="text-sm font-semibold text-white">
+                        {getPaymentStatusLabel(selectedTrack)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
+                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Updated</p>
+                      <p className="text-sm font-semibold text-white">
+                        {formatReadableDate(selectedTrack.updatedAt)}
+                      </p>
+                    </div>
+                  </div>
+                  <MultiShopOrderBreakdown
+                    shopOrders={getOrderBreakdown(selectedTrack)}
+                    shippingAddress={selectedTrack.shippingAddress}
+                  />
+                </div>
+              ) : null}
+            </>
           )}
         </div>
       );
@@ -765,7 +970,7 @@ const ProfilePage = () => {
                       {card.label.slice(0,2)}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-white">{card.label} •••• {card.last4}</p>
+                      <p className="text-sm font-semibold text-white">{card.label} · {card.last4}</p>
                       <p className="text-xs text-white/40">{card.holder}</p>
                     </div>
                   </div>
@@ -869,7 +1074,7 @@ const ProfilePage = () => {
               No items saved yet.
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 pt-4">
               {wishlist.map((item) => (
                 <ProductCard key={item.id} product={item} />
               ))}
@@ -889,8 +1094,8 @@ const ProfilePage = () => {
   return (
     <div className="min-h-screen bg-[#0b0b0d] text-white font-Poppins">
       <Navbar />
-      <div className="mx-auto max-w-6xl px-8 sm:px-12 pt-28 pb-28">
-        <div className="grid gap-8 lg:grid-cols-4">
+      <div className="mx-auto max-w-6xl px-8 sm:px-12 pt-44 pb-28">
+        <div className="grid gap-8 lg:grid-cols-4 pt-8">
           {/* Sidebar */}
           <div className="rounded-2xl border border-white/10 bg-[#111114] p-5">
             <ul className="space-y-2.5 text-base">
@@ -906,6 +1111,10 @@ const ProfilePage = () => {
                             setEditingAddress(null);
                           }
                           setActiveTab(key);
+                          setSearchParams(
+                            key === "profile" ? {} : { tab: key },
+                            { replace: true }
+                          );
                         }
                       }}
                     className={`flex w-full items-center gap-3.5 rounded-xl px-4 py-3 transition ${
@@ -914,8 +1123,10 @@ const ProfilePage = () => {
                         : "text-white/60 hover:text-white hover:bg-white/5"
                     }`}
                   >
-                    <Icon size={16} />
-                    <span>{label}</span>
+                      <span className="flex-shrink-0">
+                      <Icon size={18} />
+                    </span>
+                    <span className="whitespace-nowrap">{label}</span>
                   </button>
                 </li>
               ))}
@@ -923,7 +1134,7 @@ const ProfilePage = () => {
           </div>
 
           {/* Main content */}
-          <div className="lg:col-span-3">{renderContent()}</div>
+          <div className="lg:col-span-3 pt-6">{renderContent()}</div>
         </div>
       </div>
       <AddressModal
@@ -936,10 +1147,50 @@ const ProfilePage = () => {
         }}
         onSubmitAddress={editingAddress ? handleUpdateAddress : handleCreateAddress}
       />
+      {isReviewModalOpen && reviewingItem && (
+        <ReviewModal
+          product={reviewingItem}
+          orderId={selectedOrder?._id}
+          onClose={() => {
+            setReviewModalOpen(false);
+            setReviewingItem(null);
+          }}
+          onReviewSubmitted={() => {
+            refreshOrders();
+            setReviewModalOpen(false);
+            setReviewingItem(null);
+          }}
+        />
+      )}
       <Footer />
     </div>
   );
 };
 
+
+const ReviewModal = ({ product, orderId, onClose, onReviewSubmitted }) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0b0d] p-6 shadow-2xl">
+        <h3 className="mb-4 font-Playfair text-xl font-semibold text-white">
+          Review for {product.name}
+        </h3>
+        <ReviewForm
+          product={product}
+          orderId={orderId}
+          onReviewAdded={() => {
+            onReviewSubmitted();
+          }}
+        />
+        <button
+          onClick={onClose}
+          className="mt-4 w-full rounded-lg py-2 text-sm text-white/60 hover:text-white"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+};
 
 export default ProfilePage;

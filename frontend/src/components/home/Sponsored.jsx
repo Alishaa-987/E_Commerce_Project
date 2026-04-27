@@ -10,7 +10,7 @@ const Sponsored = () => {
   const loopBrands = [...brandNames, ...brandNames];
 
   return (
-    <section className="py-16 border-y border-white/5 overflow-hidden bg-[#0b0b0d]">
+    <section className="py-10 border-y border-white/5 overflow-hidden bg-[#0b0b0d]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mb-8">
         <p className="text-center text-xs uppercase tracking-widest text-white/25">
           Active sellers on the marketplace
@@ -26,9 +26,9 @@ const Sponsored = () => {
 
           <div className="flex" style={{ animation: "marquee 22s linear infinite" }}>
             {loopBrands.map((brand, i) => (
-              <div key={`${brand}-${i}`} className="mx-10 flex shrink-0 items-center gap-2.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-white/20" />
-                <span className="cursor-default whitespace-nowrap text-base font-medium text-white/25 transition hover:text-white/50">
+              <div key={`${brand}-${i}`} className="mx-6 flex shrink-0 items-center gap-2">
+                <span className="h-1 w-1 rounded-full bg-white/20" />
+                <span className="cursor-default whitespace-nowrap text-sm font-medium text-white/25 transition hover:text-white/50">
                   {brand}
                 </span>
               </div>

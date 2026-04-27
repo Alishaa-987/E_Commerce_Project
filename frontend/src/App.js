@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
+import { io } from "socket.io-client";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import "./App.css";
 import {
@@ -30,6 +31,7 @@ import {
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import ProtectedSellerRoute from "./components/auth/ProtectedSellerRoute";
 import SellerWorkspaceLayout from "./components/seller/dashboard/SellerWorkspaceLayout";
+import StripeProvider from "./components/payment/StripeProvider";
 import { CartProvider } from "./context/CartContext";
 import { WishlistProvider } from "./context/WishlistContext";
 import { loadUser } from "./redux/actions/user";
@@ -38,19 +40,8 @@ import { getAllProducts } from "./redux/actions/product";
 import { getAllShops } from "./redux/actions/seller";
 import { getAllEvents } from "./redux/actions/event";
 import { useDispatch } from "react-redux";
-import { server } from "./server";
-import axios from "axios";
-import {Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
-import PaymentPage from "./pages/paymentPage";
 const App = () => {
-  const [stripeKey , setStripeKey] = useState("");
   const dispatch = useDispatch();
-
-  const getStripeApiKey = async () => {
-    const {data} = await axios.get(`${server}/payment/stripeapikey`);
-    setStripeKey(data.stripeApiKey);
-  };
 
   useEffect(() => {
     const shouldLoadUser =
@@ -65,30 +56,42 @@ const App = () => {
     dispatch(getAllProducts());
     dispatch(getAllShops());
     dispatch(getAllEvents());
-    getStripeApiKey();
+  }, [dispatch]);
+
+  useEffect(() => {
+    const socket = io("http://localhost:8000", {
+      withCredentials: true,
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 5,
+      transports: ["websocket", "polling"],
+    });
+
+    socket.on("connect", () => {
+      console.log("✅ Socket connected", socket.id);
+    });
+
+    socket.on("orderUpdated", (updatedOrder) => {
+      console.log("📦 Real-time order update received:", updatedOrder);
+      dispatch({ type: "orderUpdated", payload: updatedOrder });
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error("❌ Socket connection error:", error);
+    });
+
+    socket.on("disconnect", (reason) => {
+      console.warn("⚠️ Socket disconnected:", reason);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
-  console.log(stripeKey);
   return (
-
-    
     <BrowserRouter>
-    {
-      stripeKey && (
-        <Elements stripe={loadStripe(stripeKey)}>
-          <Routes>
-        <Route 
-        path="payment"
-        element={
-          <ProtectedRoute>
-            <PaymentPage/>
-          </ProtectedRoute>
-        }
-        />
-            </Routes>
-        </Elements> 
-      )
-}
       <WishlistProvider>
         <CartProvider>
           <Routes>
@@ -166,7 +169,9 @@ const App = () => {
               path="/checkout"
               element={
                 <ProtectedRoute>
-                  <CheckoutPage />
+                  <StripeProvider>
+                    <CheckoutPage />
+                  </StripeProvider>
                 </ProtectedRoute>
               }
             />

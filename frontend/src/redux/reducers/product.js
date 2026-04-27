@@ -90,10 +90,41 @@ export const productReducer = createReducer(initialState, (builder) => {
         state.productDetails = null;
       }
     })
-    .addCase("deleteProductFail", (state, action) => {
-      state.deleteProductLoading = false;
-      state.deletingProductId = null;
-      state.sellerProductsError = action.payload.message;
+    .addCase("updateProductInventory", (state, action) => {
+      const { productId, quantity } = action.payload;
+
+      // Update in allProducts
+      state.allProducts = state.allProducts.map(product => {
+        if (product._id === productId || product.id === productId) {
+          return {
+            ...product,
+            stock: Math.max(0, (product.stock || 0) - quantity),
+            sold_out: (product.sold_out || 0) + quantity
+          };
+        }
+        return product;
+      });
+
+      // Update in sellerProducts
+      state.sellerProducts = state.sellerProducts.map(product => {
+        if (product._id === productId || product.id === productId) {
+          return {
+            ...product,
+            stock: Math.max(0, (product.stock || 0) - quantity),
+            sold_out: (product.sold_out || 0) + quantity
+          };
+        }
+        return product;
+      });
+
+      // Update productDetails if it's the same product
+      if (state.productDetails && (state.productDetails._id === productId || state.productDetails.id === productId)) {
+        state.productDetails = {
+          ...state.productDetails,
+          stock: Math.max(0, (state.productDetails.stock || 0) - quantity),
+          sold_out: (state.productDetails.sold_out || 0) + quantity
+        };
+      }
     })
     .addCase("clearErrors", (state) => {
       state.error = null;

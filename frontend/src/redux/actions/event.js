@@ -67,6 +67,22 @@ export const getAllEvents = () => async (dispatch) => {
   }
 };
 
+export const getEventDetails = (eventId) => async (dispatch) => {
+  try {
+    const { data } = await axios.get(`${server}/event/get-event/${eventId}`);
+
+    return {
+      success: true,
+      event: normalizeEvent(data.event),
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Event details could not be loaded.",
+    };
+  }
+};
+
 export const getAllEventsShop = (shopId) => async (dispatch) => {
   try {
     dispatch({

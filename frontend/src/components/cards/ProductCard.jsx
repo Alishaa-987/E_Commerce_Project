@@ -111,7 +111,7 @@ const ProductCard = ({ product }) => {
           <AiFillStar size={14} className="text-emerald-300" />
           <span className="text-sm text-white/70">{product?.rating || 0}</span>
           <span className="text-sm text-white/30">
-            ({product?.reviews || 0})
+            ({product?.reviews?.length || 0})
           </span>
         </div>
 

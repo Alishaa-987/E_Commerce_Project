@@ -7,7 +7,22 @@ export const slugify = (value = "") =>
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+export const decodeText = (value = "") => {
+  if (typeof value !== "string") {
+    return value;
+  }
 
+  if (!/[ÃÂÄÅ]/.test(value)) {
+    return value;
+  }
+
+  try {
+    const bytes = Uint8Array.from(value, (char) => char.charCodeAt(0));
+    return new TextDecoder("utf-8").decode(bytes);
+  } catch (error) {
+    return value;
+  }
+};
 export const toAbsoluteAssetUrl = (asset) => {
   if (!asset) {
     return "";
@@ -161,7 +176,7 @@ export const getEventStatus = (startDate, endDate) => {
 
 export const normalizeSeller = (seller = {}, productCountOverride = null) => {
   const id = seller?._id || seller?.id || "";
-  const name = seller?.shopName || seller?.name || "Untitled Shop";
+  const name = decodeText(seller?.shopName || seller?.name || "Untitled Shop");
   const avatar =
     toAbsoluteAssetUrl(seller?.avatar || "") || buildSvgPlaceholder({ label: name[0] || "S" });
   const banner = toAbsoluteAssetUrl(seller?.banner || "") || buildBannerPlaceholder(name);
@@ -178,7 +193,7 @@ export const normalizeSeller = (seller = {}, productCountOverride = null) => {
     handle: seller?.handle || slugify(name) || `shop-${String(id).slice(-6)}`,
     avatar,
     banner,
-    description: seller?.description || "No shop description added yet.",
+    description: decodeText(seller?.description || "No shop description added yet."),
     rating: toNumber(seller?.rating, 0),
     followers: toNumber(seller?.followers, 0),
     phone: seller?.phone || "",
@@ -218,17 +233,17 @@ export const normalizeProduct = (product = {}) => {
   const isNew = createdAtTime
     ? Date.now() - createdAtTime <= 1000 * 60 * 60 * 24 * 14
     : Boolean(product?.isNew);
-  const shopName = shop?.name || product?.shopName || "Unknown shop";
+  const shopName = decodeText(shop?.name || product?.shopName || "Unknown shop");
   const shopId = product?.shopId || shop?.id || "";
 
   return {
     id: product?._id || product?.id || "",
     _id: product?._id || product?.id || "",
-    name: product?.name || "Untitled product",
-    description: product?.description || "",
-    category: product?.category || "Uncategorized",
+    name: decodeText(product?.name || "Untitled product"),
+    description: decodeText(product?.description || ""),
+    category: decodeText(product?.category || "Uncategorized"),
     tags: toTagArray(product?.tags),
-    couponCode: product?.couponCode || "",
+    couponCode: decodeText(product?.couponCode || ""),
     price,
     originalPrice,
     rating: toNumber(product?.rating, shop?.rating || 0),
@@ -288,6 +303,10 @@ export const normalizeEvent = (event = {}) => {
     shopId: event?.shopId || shop?.id || "",
     shopName,
     shopHandle: shop?.handle || event?.shopHandle || slugify(shopName),
+    shopAvatar: shop?.avatar || toAbsoluteAssetUrl(event?.shopAvatar || ""),
+    shopDescription: shop?.description || event?.shopDescription || "",
+    shopFollowers: toNumber(event?.shopFollowers, shop?.followers || 0),
+    shopRating: toNumber(event?.shopRating, shop?.rating || 0),
     startDate,
     endDate,
     status,
