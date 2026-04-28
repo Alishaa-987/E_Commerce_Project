@@ -4,7 +4,9 @@ const catchAsyncError = require("../middleware/catchAsyncError");
 const ErrorHandler = require("../utils/ErrorHandler");
 const { isAuthenticated } = require("../middleware/auth");
 
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const stripe = process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY !== 'sk_test_YOUR_SECRET_KEY_HERE' 
+  ? require("stripe")(process.env.STRIPE_SECRET_KEY) 
+  : null;
 const DEFAULT_PAYMENT_CURRENCY = String(
   process.env.STRIPE_CURRENCY || "usd"
 ).toLowerCase();
@@ -37,6 +39,10 @@ router.post(
   "/process",
   isAuthenticated,
   catchAsyncError(async (req, res, next) => {
+    if (!stripe) {
+      return next(new ErrorHandler("Payment service is not configured. Please set STRIPE_SECRET_KEY.", 500));
+    }
+    
     const {
       amount,
       cart = [],

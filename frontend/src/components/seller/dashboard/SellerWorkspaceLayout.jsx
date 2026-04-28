@@ -12,6 +12,7 @@ import SellerDashboardSidebar from "./SellerDashboardSidebar";
 import { loadSellerById } from "../../../redux/actions/seller";
 import { getAllProductsShop } from "../../../redux/actions/product";
 import { getAllEventsShop } from "../../../redux/actions/event";
+import { getSellerOrders } from "../../../redux/actions/order";
 
 const SellerWorkspaceLayout = () => {
   const location = useLocation();
@@ -28,16 +29,19 @@ const SellerWorkspaceLayout = () => {
   } = useSelector((state) => state.seller);
   const { sellerProducts, sellerProductsLoading } = useSelector((state) => state.products);
   const { sellerEvents, sellerEventsLoading } = useSelector((state) => state.events);
+  const { sellerOrders, sellerOrdersLoading } = useSelector((state) => state.order);
+
   const dashboardData = useMemo(
     () =>
       getSellerDashboardData({
         sellerShop: currentSeller,
         sellerProducts,
         sellerEvents,
+        sellerOrders,
         storedEmail: storedSellerEmail,
         sellerAvatar: currentSeller?.avatar,
       }),
-    [currentSeller, sellerProducts, sellerEvents, storedSellerEmail]
+    [currentSeller, sellerProducts, sellerEvents, sellerOrders, storedSellerEmail]
   );
 
   const { storedEmail, sellerShop, sellerAvatar } = dashboardData;
@@ -51,6 +55,7 @@ const SellerWorkspaceLayout = () => {
     dispatch(loadSellerById(sellerId));
     dispatch(getAllProductsShop(sellerId));
     dispatch(getAllEventsShop(sellerId));
+    dispatch(getSellerOrders(sellerId));
   }, [dispatch, sellerId]);
 
   useEffect(() => {
@@ -81,6 +86,7 @@ const SellerWorkspaceLayout = () => {
     dispatch(loadSellerById(sellerId));
     dispatch(getAllProductsShop(sellerId));
     dispatch(getAllEventsShop(sellerId));
+    dispatch(getSellerOrders(sellerId));
   };
 
   if (!sellerId) {

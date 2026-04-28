@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { AiFillStar, AiOutlineStar } from "react-icons/ai";
 import { io } from "socket.io-client";
 import {
@@ -9,6 +9,7 @@ import {
   FiShield,
   FiShoppingCart,
   FiTruck,
+  FiRefreshCw,
 } from "react-icons/fi";
 import { useDispatch, useSelector } from "react-redux";
 import ProductCard from "../../components/cards/ProductCard";
@@ -19,7 +20,9 @@ import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
 import { getEventDetails } from "../../redux/actions/event";
 import { getProductDetails } from "../../redux/actions/product";
-import { resolveAvailableStock, slugify } from "../../utils/marketplace";
+import { checkProductPurchase } from "../../redux/actions/order";
+import { createConversation } from "../../redux/actions/conversation";
+import { resolveAvailableStock, slugify, toAbsoluteAssetUrl } from "../../utils/marketplace";
 
 const Stars = ({ rating }) =>
   Array.from({ length: 5 }).map((_, index) =>
@@ -32,6 +35,7 @@ const Stars = ({ rating }) =>
 
 const ProductDetailPage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const { addToCart, getCartItemQty, isInCart } = useCart();
   const { isWishlisted, toggleWishlist } = useWishlist();
@@ -48,36 +52,30 @@ const ProductDetailPage = () => {
   const { allShops = [] } = useSelector((state) => state.seller);
   const { isAuthenticated, user } = useSelector((state) => state.user);
   const { orders: userOrders } = useSelector((state) => state.order);
+  const { purchaseCheck } = useSelector((state) => state.order);
 
-  const matchedProduct = useMemo(
-    () =>
-      allProducts.find((item) => item.id === id || item._id === id) ||
-      (productDetails?.id === id || productDetails?._id === id
+  const product = useMemo(() => {
+    // Priority: 1. productDetails (specifically fetched for this page, has latest reviews)
+    //           2. allProducts (global list, might be stale)
+    //           3. fallbackEvent (if it's an event instead of a regular product)
+    const fromDetails =
+      productDetails && (productDetails.id === id || productDetails._id === id)
         ? productDetails
-        : null),
-    [allProducts, id, productDetails]
-  );
-  const product = matchedProduct || fallbackEvent;
-  const isEventItem = !matchedProduct && Boolean(fallbackEvent);
+        : null;
+        
+    if (fromDetails) return fromDetails;
+    
+    return (
+      allProducts.find((item) => item.id === id || item._id === id) ||
+      fallbackEvent
+    );
+  }, [allProducts, id, productDetails, fallbackEvent]);
+
+  const isEventItem = !allProducts.find((item) => item.id === id || item._id === id) && Boolean(fallbackEvent);
 
 
   const productId = product?.id || product?._id || "";
   const socketRef = useRef(null);
-
-  // Find the order containing this product (for verified purchase review)
-  const productOrder = useMemo(() => {
-    if (!isAuthenticated || !userOrders?.length || !productId) {
-      return null;
-    }
-    return userOrders.find((order) =>
-      order.cart?.some(
-        (item) =>
-          item.product?.toString() === productId.toString() ||
-          item.id?.toString() === productId.toString() ||
-          item._id?.toString() === productId.toString()
-      )
-    );
-  }, [isAuthenticated, userOrders, productId]);
 
   useEffect(() => {
     setFallbackEvent(null);
@@ -134,7 +132,9 @@ const ProductDetailPage = () => {
   useEffect(() => {
     let isMounted = true;
 
-    if (!id || matchedProduct) {
+    const hasDetails = productDetails && (productDetails.id === id || productDetails._id === id);
+
+    if (!id || hasDetails) {
       return undefined;
     }
 
@@ -171,7 +171,7 @@ const ProductDetailPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [dispatch, id, matchedProduct]);
+  }, [dispatch, id, productDetails]);
 
   const stock = resolveAvailableStock(product);
   const soldOut = stock <= 0;
@@ -251,6 +251,15 @@ const ProductDetailPage = () => {
       Math.min(Math.max(currentQty || 1, 1), remainingToAdd)
     );
   }, [canAddMore, remainingToAdd]);
+
+  // Check if user has purchased this product
+  useEffect(() => {
+    if (!isAuthenticated || !productId) {
+      return;
+    }
+
+    dispatch(checkProductPurchase(productId));
+  }, [dispatch, isAuthenticated, productId]);
 
   useEffect(() => {
     if (!cartNotice) {
@@ -376,9 +385,18 @@ const ProductDetailPage = () => {
     }
   };
 
-  const handleMessageSeller = () => {
-    const sellerName = shop?.name || product.shopName || "seller";
-    window.alert(`Starting a message thread with ${sellerName}.`);
+  const handleMessageSeller = async () => {
+    if (isAuthenticated) {
+      const sellerId = shop?._id || product?.shopId;
+      const userId = user?._id;
+      const groupTitle = sellerId + userId;
+      const res = await dispatch(createConversation(groupTitle, userId, sellerId));
+      if (res?.success) {
+        navigate(`/profile?tab=inbox&conversationId=${res.conversation._id}`);
+      }
+    } else {
+      window.alert("Please login to create a conversation");
+    }
   };
 
   return (
@@ -751,19 +769,67 @@ const ProductDetailPage = () => {
             </div>
 
             {isAuthenticated ? (
-              <button
-                onClick={() => setShowReviewForm(true)}
-                className="w-full rounded-xl border border-emerald-300/40 bg-emerald-300/10 px-4 py-3 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-300/20 mb-6"
-              >
-                Write a Review
-              </button>
+              purchaseCheck.hasPurchased && purchaseCheck.hasDelivered ? (
+                <button
+                  onClick={() => setShowReviewForm(true)}
+                  className="w-full rounded-xl border border-emerald-300/40 bg-emerald-300/10 px-4 py-3 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-300/20 mb-6"
+                >
+                  Write a Review
+                </button>
+              ) : purchaseCheck.hasPurchased ? (
+                <div className="mb-6 rounded-xl border border-amber-300/20 bg-amber-300/5 px-4 py-3 text-center">
+                  <p className="text-xs text-amber-200">
+                    {purchaseCheck.loading ? "Checking order status..." : "You can review this product after delivery."}
+                  </p>
+                </div>
+              ) : (
+                <div className="mb-6 rounded-xl border border-white/10 bg-[#111114] p-6 text-center">
+                  <p className="text-white/50">You can only review products you have purchased.</p>
+                </div>
+              )
             ) : (
               <div className="mb-8 rounded-3xl border border-white/10 bg-[#111114] p-6 text-center">
                 <p className="text-white/50">Please log in to leave a review.</p>
               </div>
             )}
 
-            {showReviewForm && isAuthenticated && (
+            {isAuthenticated && purchaseCheck.hasPurchased && purchaseCheck.orders?.length > 0 && (
+              <div className="mb-6">
+                {purchaseCheck.orders.map((order) => (
+                  <div key={order.orderId} className="rounded-xl border border-white/10 bg-[#111114] p-4 mb-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-white/40">Order ID</p>
+                        <p className="text-sm font-semibold text-white">
+                          {order.orderId?.slice(-8).toUpperCase()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          order.orderStatus === "delivered" 
+                            ? "bg-emerald-300/20 text-emerald-200" 
+                            : "bg-amber-300/20 text-amber-200"
+                        }`}>
+                          {order.orderStatus}
+                        </span>
+                        {order.canReview && (
+                          <button
+                            onClick={() => {
+                              setShowReviewForm(true);
+                            }}
+                            className="text-xs font-medium text-emerald-300 border border-emerald-300/30 rounded px-3 py-1.5 hover:bg-emerald-300/10 transition"
+                          >
+                            Write Review
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {showReviewForm && isAuthenticated && purchaseCheck.hasDelivered && (
               <div className="mb-8 rounded-3xl border border-white/10 bg-[#111114] p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-medium text-white">Write a review</h3>
@@ -776,9 +842,10 @@ const ProductDetailPage = () => {
                 </div>
                 <ReviewForm
                   product={product}
-                  orderId={productOrder?._id}
+                  orderId={purchaseCheck.orders?.[0]?.orderId}
                   onReviewAdded={() => {
                     dispatch(getProductDetails(productId));
+                    dispatch(checkProductPurchase(productId));
                     setShowReviewForm(false);
                   }}
                 />
@@ -791,7 +858,7 @@ const ProductDetailPage = () => {
                  <div className="flex items-start justify-between gap-4">
                    <div className="flex items-center gap-3">
                      {review.user?.avatar ? (
-                       <img src={review.user.avatar} alt={review.user.name} className="h-10 w-10 rounded-full object-cover" />
+                       <img src={toAbsoluteAssetUrl(review.user.avatar)} alt={review.user.name} className="h-10 w-10 rounded-full object-cover" />
                      ) : (
                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-300/10">
                          <span className="text-sm font-medium text-emerald-300">

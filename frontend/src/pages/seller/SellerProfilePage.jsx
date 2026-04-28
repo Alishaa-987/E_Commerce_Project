@@ -14,6 +14,7 @@ import SellerProfileProductsTab from "../../components/seller/profile/SellerProf
 import SellerProfileReviewsTab from "../../components/seller/profile/SellerProfileReviewsTab";
 import SellerProfileSidebar from "../../components/seller/profile/SellerProfileSidebar";
 import SellerProfileTabs from "../../components/seller/profile/SellerProfileTabs";
+import EditSellerModal from "../../components/seller/profile/EditSellerModal";
 import { loadSellerById } from "../../redux/actions/seller";
 import { getAllProductsShop } from "../../redux/actions/product";
 import { getAllEventsShop } from "../../redux/actions/event";
@@ -46,6 +47,7 @@ const SellerProfilePage = () => {
     [currentSeller, sellerProductsState, sellerEvents, storedSellerEmail]
   );
   const [activeKey, setActiveKey] = useState("products");
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     if (!sellerId) {
@@ -143,7 +145,7 @@ const SellerProfilePage = () => {
             shopMeta={shopMeta}
             sellerProductCount={sellerProductCount}
             averageRating={averageRating}
-            onEditShop={() => navigate("/seller/dashboard")}
+            onEditShop={() => setIsEditModalOpen(true)}
             onLogout={handleLogout}
           />
 
@@ -184,6 +186,11 @@ const SellerProfilePage = () => {
           </section>
         </div>
       </div>
+      <EditSellerModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        seller={sellerShop}
+      />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { FiX, FiSend, FiCheck } from "react-icons/fi";
 
-const ORDER_STATUS_OPTIONS = ["pending", "processing", "shipped", "delivered"];
+const ORDER_STATUS_OPTIONS = ["pending", "processing", "shipped", "delivered", "cancelled"];
 
 const statusStyles = {
   pending: "bg-amber-300/20 text-amber-200 border border-amber-300/30",
@@ -113,11 +113,11 @@ const SellerOrderDetailModal = ({
               Delivery Address
             </h3>
             <div className="mt-3 space-y-1 text-sm text-white/70">
-              <p>{shippingAddress.addressLine1 || ""}</p>
-              {shippingAddress.addressLine2 && <p>{shippingAddress.addressLine2}</p>}
+              <p>{shippingAddress.firstName} {shippingAddress.lastName}</p>
+              <p>{shippingAddress.address1 || ""}</p>
+              {shippingAddress.address2 && <p>{shippingAddress.address2}</p>}
               <p>
-                {shippingAddress.city}, {shippingAddress.state}{" "}
-                {shippingAddress.postalCode}
+                {shippingAddress.city} {shippingAddress.zipCode}
               </p>
               <p>{shippingAddress.country || ""}</p>
               <p className="mt-2 font-semibold text-white">

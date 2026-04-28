@@ -178,15 +178,22 @@ const SellerDashboardOrdersPanel = ({
               <p className="text-sm font-semibold text-white">
                 {formatSellerCurrency(order?.totalPrice || order?.total || 0)}
               </p>
-              <div className="flex items-center justify-between gap-3 md:justify-end">
-                <span
-                  className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+              <div className="flex items-center justify-between gap-3 md:justify-end" onClick={(e) => e.stopPropagation()}>
+                <select
+                  value={String(order?.orderStatus || order?.status || "pending").toLowerCase()}
+                  disabled={isUpdating}
+                  onChange={(e) => onStatusChange(order._id || order.id, e.target.value)}
+                  className={`rounded-full px-3 py-1 text-[11px] font-semibold bg-transparent outline-none cursor-pointer transition border ${
                     statusStyles[String(order?.orderStatus || order?.status || "pending").toLowerCase()] ||
                     statusStyles.pending
                   }`}
                 >
-                  {formatStatusLabel(order?.orderStatus || order?.status)}
-                </span>
+                  <option value="pending" className="bg-[#111114] text-amber-200">Pending</option>
+                  <option value="processing" className="bg-[#111114] text-sky-200">Processing</option>
+                  <option value="shipped" className="bg-[#111114] text-emerald-200">Shipped</option>
+                  <option value="delivered" className="bg-[#111114] text-white/70">Delivered</option>
+                  <option value="cancelled" className="bg-[#111114] text-rose-200">Cancelled</option>
+                </select>
                 <span className="text-xs text-white/35">{formatPlacedAt(order?.createdAt)}</span>
               </div>
             </button>

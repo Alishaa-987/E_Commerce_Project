@@ -98,3 +98,67 @@ export const getShopByHandle = (handle) => async (dispatch) => {
     };
   }
 };
+export const updateSellerInfo = (formData) => async (dispatch) => {
+  try {
+    dispatch({
+      type: "updateSellerInfoRequest",
+    });
+
+    const { data } = await axios.put(`${server}/seller/update-seller-info`, formData, {
+      withCredentials: true,
+    });
+
+    dispatch({
+      type: "updateSellerInfoSuccess",
+      payload: normalizeSeller(data.seller, data.seller?.productCount),
+    });
+
+    return {
+      success: true,
+      seller: data.seller,
+    };
+  } catch (error) {
+    const message = error.response?.data?.message || "Failed to update seller info.";
+    dispatch({
+      type: "updateSellerInfoFail",
+      payload: message,
+    });
+
+    return {
+      success: false,
+      message,
+    };
+  }
+};
+
+export const updateSellerPassword = (passwordData) => async (dispatch) => {
+  try {
+    dispatch({
+      type: "updateSellerPasswordRequest",
+    });
+
+    const { data } = await axios.put(`${server}/seller/update-seller-password`, passwordData, {
+      withCredentials: true,
+    });
+
+    dispatch({
+      type: "updateSellerPasswordSuccess",
+    });
+
+    return {
+      success: true,
+      message: data.message,
+    };
+  } catch (error) {
+    const message = error.response?.data?.message || "Failed to update password.";
+    dispatch({
+      type: "updateSellerPasswordFail",
+      payload: message,
+    });
+
+    return {
+      success: false,
+      message,
+    };
+  }
+};

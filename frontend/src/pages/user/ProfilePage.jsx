@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   FiUser,
   FiPackage,
@@ -20,6 +20,7 @@ import Footer from "../../components/layout/Footer";
 import { useDispatch, useSelector } from "react-redux";
 import AddressModal from "../../components/user/AddressModal";
 import SavedAddressRow from "../../components/user/SavedAddressRow";
+import Inbox from "../../components/messaging/Inbox";
 import {
   addUserAddress,
   deleteUserAddress,
@@ -33,9 +34,6 @@ import { clearUserFeedback } from "../../redux/reducers/user";
 import { useWishlist } from "../../context/WishlistContext";
 import ProductCard from "../../components/cards/ProductCard";
 import { toAbsoluteAssetUrl } from "../../utils/marketplace";
-import MultiShopOrderBreakdown from "../../components/order/MultiShopOrderBreakdown";
-import ReviewForm from "../../components/product/ReviewForm";
-import RefundRequestForm from "../../components/order/RefundRequestForm";
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/10 transition";
@@ -215,7 +213,7 @@ const ProfilePage = () => {
     addressActionId,
     successMessage,
   } = useSelector((state) => state.user);
-  const { orders: userOrders, ordersLoading, ordersError } = useSelector(
+  const { userOrders, userOrdersLoading, userOrdersError } = useSelector(
     (state) => state.order
   );
   const { wishlist } = useWishlist();
@@ -238,27 +236,8 @@ const ProfilePage = () => {
   });
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
-  const [selectedOrderId, setSelectedOrderId] = useState("");
   const [selectedRefund, setSelectedRefund] = useState(mockRefunds[0]);
-  const [selectedTrackId, setSelectedTrackId] = useState("");
-  const [isReviewModalOpen, setReviewModalOpen] = useState(false);
-  const [isRefundModalOpen, setRefundModalOpen] = useState(false);
-  const [requestingRefundItem, setRequestingRefundItem] = useState(null);
-  const [reviewingItem, setReviewingItem] = useState(null);
   const savedAddresses = user?.addresses || [];
-
-  const selectedOrder = useMemo(
-    () => userOrders.find((order) => order._id === selectedOrderId) || null,
-    [selectedOrderId, userOrders]
-  );
-  const trackableOrders = useMemo(
-    () => userOrders.filter((order) => String(order?.orderStatus || "").toLowerCase() !== "cancelled"),
-    [userOrders]
-  );
-  const selectedTrack = useMemo(
-    () => trackableOrders.find((order) => order._id === selectedTrackId) || null,
-    [selectedTrackId, trackableOrders]
-  );
 
   const tabs = useMemo(
     () => [
@@ -328,31 +307,6 @@ const ProfilePage = () => {
 
     dispatch(getUserOrders());
   }, [dispatch, user?._id]);
-
-  useEffect(() => {
-    if (!userOrders.length) {
-      setSelectedOrderId("");
-      setSelectedTrackId("");
-      return;
-    }
-
-    setSelectedOrderId((current) =>
-      userOrders.some((order) => order._id === current) ? current : userOrders[0]._id
-    );
-  }, [userOrders]);
-
-  useEffect(() => {
-    if (!trackableOrders.length) {
-      setSelectedTrackId("");
-      return;
-    }
-
-    setSelectedTrackId((current) =>
-      trackableOrders.some((order) => order._id === current)
-        ? current
-        : trackableOrders[0]._id
-    );
-  }, [trackableOrders]);
 
   const handleAvatar = (e) => {
     const file = e.target.files?.[0];
@@ -439,7 +393,7 @@ const ProfilePage = () => {
   const renderContent = () => {
     if (activeTab === "profile") {
       return (
-          <div className="rounded-2xl border border-white/10 bg-[#111114] p-6 lg:p-8 space-y-6">
+        <div className="rounded-2xl border border-white/10 bg-[#111114] p-6 lg:p-8 space-y-6">
           <div className="flex flex-col items-center gap-3">
             <div className="relative group">
               <div className="h-32 w-32 rounded-full p-[3px] bg-gradient-to-br from-emerald-300 to-white/40 shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
@@ -466,68 +420,69 @@ const ProfilePage = () => {
           </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label className="text-xs text-white/40">Full Name</label>
-              <input
-                name="name"
-                value={profile.name}
-                onChange={handleChange}
-                placeholder="Full Name"
-                className={inputClass}
-              />
+              <div className="space-y-1">
+                <label className="text-xs text-white/40">Full Name</label>
+                <input
+                  name="name"
+                  value={profile.name}
+                  onChange={handleChange}
+                  placeholder="Full Name"
+                  className={inputClass}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-white/40">Email Address</label>
+                <input
+                  name="email"
+                  type="email"
+                  value={profile.email}
+                  onChange={handleChange}
+                  placeholder="you@example.com"
+                  className={inputClass}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-white/40">Phone Number</label>
+                <input
+                  name="phone"
+                  value={profile.phone}
+                  onChange={handleChange}
+                  placeholder="+92 300 0000000"
+                  className={inputClass}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-white/40">Current Password</label>
+                <input
+                  name="currentPassword"
+                  type="password"
+                  value={profile.currentPassword}
+                  onChange={handleChange}
+                  placeholder="Enter password to save changes"
+                  className={inputClass}
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs text-white/40">Email Address</label>
-              <input
-                name="email"
-                type="email"
-                value={profile.email}
-                onChange={handleChange}
-                placeholder="you@example.com"
-                className={inputClass}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-white/40">Phone Number</label>
-              <input
-                name="phone"
-                value={profile.phone}
-                onChange={handleChange}
-                placeholder="+92 300 0000000"
-                className={inputClass}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-white/40">Current Password</label>
-              <input
-                name="currentPassword"
-                type="password"
-                value={profile.currentPassword}
-                onChange={handleChange}
-                placeholder="Enter password to save changes"
-                className={inputClass}
-              />
+
+            {profileUpdateError ? (
+              <p className="text-sm text-rose-300">{profileUpdateError}</p>
+            ) : null}
+            {!profileUpdateError && successMessage && activeTab === "profile" ? (
+              <p className="text-sm text-emerald-300">{successMessage}</p>
+            ) : null}
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleSave}
+                disabled={profileUpdateLoading}
+                className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[#0b0b0d] transition hover:-translate-y-0.5"
+              >
+                {profileUpdateLoading ? "Updating..." : "Update"}
+              </button>
             </div>
           </div>
-
-          {profileUpdateError ? (
-            <p className="text-sm text-rose-300">{profileUpdateError}</p>
-          ) : null}
-          {!profileUpdateError && successMessage && activeTab === "profile" ? (
-            <p className="text-sm text-emerald-300">{successMessage}</p>
-          ) : null}
-
-          <div className="flex gap-3">
-            <button
-              onClick={handleSave}
-              disabled={profileUpdateLoading}
-              className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[#0b0b0d] transition hover:-translate-y-0.5"
-            >
-              {profileUpdateLoading ? "Updating..." : "Update"}
-            </button>
-          </div>
-        </div>
       );
+  
     }
 
     if (activeTab === "orders") {
@@ -541,21 +496,21 @@ const ProfilePage = () => {
             <div className="flex items-center gap-3">
               <button
                 onClick={refreshOrders}
-                disabled={ordersLoading}
+                disabled={userOrdersLoading}
                 className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-white/60 hover:text-white hover:bg-white/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <FiRefreshCw className={`text-sm ${ordersLoading ? 'animate-spin' : ''}`} />
+                <FiRefreshCw className={`text-sm ${userOrdersLoading ? 'animate-spin' : ''}`} />
                 Refresh
               </button>
               <span className="text-xs text-white/40">
-                {ordersLoading ? "Loading..." : `${userOrders.length} orders`}
+                {userOrdersLoading ? "Loading..." : `${userOrders.length} orders`}
               </span>
             </div>
           </div>
 
-          {ordersError ? <p className="text-sm text-rose-300">{ordersError}</p> : null}
+          {userOrdersError ? <p className="text-sm text-rose-300">{userOrdersError}</p> : null}
 
-          {ordersLoading ? (
+          {userOrdersLoading ? (
             <div className="rounded-xl border border-white/10 bg-[#0f0f12] px-4 py-5 text-sm text-white/55">
               Loading your latest orders...
             </div>
@@ -574,18 +529,13 @@ const ProfilePage = () => {
                 </div>
                 <div className="divide-y divide-white/5">
                   {userOrders.map((order) => {
-                    const isActive = selectedOrder?._id === order._id;
                     const style = getStatusStyle(order?.orderStatus);
 
                     return (
-                      <button
+                      <Link
                         key={order._id}
-                        onClick={() => setSelectedOrderId(order._id)}
-                        className={`grid w-full grid-cols-4 items-center gap-3 px-4 py-4 text-left transition ${
-                          isActive
-                            ? "bg-white/5 border-l-2 border-emerald-300/60 shadow-[0_10px_40px_rgba(0,0,0,0.35)]"
-                            : "hover:bg-white/5"
-                        }`}
+                        to={`/profile/order/${order._id}`}
+                        className={`grid w-full grid-cols-4 items-center gap-3 px-4 py-4 text-left transition hover:bg-white/5`}
                       >
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-white truncate">
@@ -608,120 +558,11 @@ const ProfilePage = () => {
                           </span>
                           <FiArrowRight size={14} className="text-white/40" />
                         </div>
-                      </button>
+                      </Link>
                     );
                   })}
                 </div>
               </div>
-
-              {selectedOrder ? (
-                <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/5 p-4 space-y-4">
-                  <p className="text-[10px] uppercase tracking-widest text-emerald-200">Selected order</p>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Order ID</p>
-                      <p className="text-sm font-semibold text-white truncate">
-                        {formatOrderDisplayId(selectedOrder._id)}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Shop</p>
-                      <p className="text-sm font-semibold text-white">{selectedOrder.shopName || "Shop"}</p>
-                    </div>
-                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Status</p>
-                      <p className="text-sm font-semibold text-white">
-                        {formatStatusLabel(selectedOrder.orderStatus)}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Payment</p>
-                      <p className="text-sm font-semibold text-white">
-                        {getPaymentMethodLabel(selectedOrder.paymentMethod)}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Total</p>
-                      <p className="text-sm font-semibold text-white">
-                        {formatOrderCurrency(selectedOrder.totalPrice)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3 text-sm text-white/70">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <span>Payment status: {getPaymentStatusLabel(selectedOrder)}</span>
-                      <span>Last updated: {formatReadableDate(selectedOrder.updatedAt)}</span>
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    {(selectedOrder.cart || []).map((item) => (
-                      <div
-                        key={item._id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-white/5 bg-[#0b0b0d] p-3"
-                      >
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={toAbsoluteAssetUrl(item.images?.[0])}
-                            alt={item.name}
-                            className="h-12 w-12 rounded-md object-cover"
-                          />
-                          <div>
-                            <p className="text-sm font-medium text-white">{item.name}</p>
-                            <p className="text-xs text-white/40">
-                              {formatOrderCurrency(item.discountPrice)} x {item.qty}
-                            </p>
-                          </div>
-                        </div>
-                        
-                        {selectedOrder.orderStatus === "delivered" && (
-                          <div className="flex items-center">
-                            {!item.reviewSubmitted ? (
-                              <button
-                                onClick={() => {
-                                  setReviewingItem(item);
-                                  setReviewModalOpen(true);
-                                }}
-                                className="text-xs font-medium text-emerald-300 border border-emerald-300/30 rounded px-3 py-1.5 hover:bg-emerald-300/10 transition whitespace-nowrap"
-                              >
-                                Write a Review
-                              </button>
-                            ) : (
-                              <span className="text-xs font-medium text-white/40 px-3 py-1.5 border border-white/5 rounded bg-white/5 whitespace-nowrap">
-                                Reviewed
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {selectedOrder.orderStatus === "delivered" && (
-                    <div className="mt-4 border-t border-white/10 pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-medium text-white">Need a Refund?</p>
-                        <p className="text-xs text-white/40">You can request a refund if there is an issue with your order.</p>
-                      </div>
-                      
-                      {selectedOrder.refund?.requested ? (
-                        <div className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-200 rounded-lg text-xs font-semibold uppercase tracking-wider text-center">
-                          Refund {selectedOrder.refund.status || "Pending"}
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setRequestingRefundItem(selectedOrder);
-                            setRefundModalOpen(true);
-                          }}
-                          className="text-xs font-semibold text-rose-300 border border-rose-300/30 rounded px-4 py-2 hover:bg-rose-300/10 transition whitespace-nowrap"
-                        >
-                          Request Refund
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : null}
             </>
           )}
         </div>
@@ -729,6 +570,8 @@ const ProfilePage = () => {
     }
 
     if (activeTab === "refunds") {
+      const refundOrders = userOrders.filter((order) => order.status === "Processing refund" || order.status === "Refund Success" || order.refund?.requested);
+
       return (
         <div className="rounded-2xl border border-white/10 bg-[#111114] p-6 lg:p-8 space-y-5">
           <div className="flex items-center justify-between">
@@ -736,92 +579,56 @@ const ProfilePage = () => {
               <p className="text-[10px] uppercase tracking-widest text-white/30 mb-1">Refunds</p>
               <h2 className="text-xl font-Playfair font-semibold text-white">Refund requests</h2>
             </div>
-            <span className="text-xs text-white/40">{mockRefunds.length} requests</span>
+            <span className="text-xs text-white/40">{refundOrders.length} requests</span>
           </div>
 
           <div className="rounded-xl border border-white/10 bg-[#0f0f12] overflow-hidden">
             <div className="grid grid-cols-4 gap-3 px-4 py-3 text-[11px] uppercase tracking-widest text-white/30">
-              <span>Refund ID</span>
+              <span>Order ID</span>
               <span>Status</span>
               <span className="text-center">Items Qty</span>
               <span className="text-right">Total</span>
             </div>
             <div className="divide-y divide-white/5">
-              {mockRefunds.map((refund) => {
-                const isActive = selectedRefund?.id === refund.id;
+              {refundOrders.map((order) => {
                 const style =
-                  statusStyles[refund.status] || {
+                  statusStyles[order.status] || {
                     pill: "bg-white/10 text-white border border-white/10",
                     dot: "bg-white/40",
                   };
                 return (
-                  <button
-                    key={refund.id}
-                    onClick={() => setSelectedRefund(refund)}
-                    className={`grid w-full grid-cols-4 items-center gap-3 px-4 py-4 text-left transition ${
-                      isActive
-                        ? "bg-white/5 border-l-2 border-emerald-300/60 shadow-[0_10px_40px_rgba(0,0,0,0.35)]"
-                        : "hover:bg-white/5"
-                    }`}
+                  <Link
+                    key={order._id}
+                    to={`/user/order/${order._id}`}
+                    className="grid grid-cols-4 gap-3 px-4 py-4 text-sm transition hover:bg-white/5"
                   >
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">{refund.id}</p>
-                      <p className="text-[11px] text-white/40">Order {refund.orderId}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${style.dot}`} />
-                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${style.pill}`}>
-                        {refund.status}
+                    <span className="font-medium text-white">{order._id.slice(-8).toUpperCase()}</span>
+                    <div>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${style.pill}`}>
+                        {order.status}
                       </span>
                     </div>
-                    <p className="text-sm text-white text-center">{refund.items}</p>
-                    <div className="flex items-center justify-end gap-2">
-                      <span className="text-sm font-semibold text-white">
-                        {refund.currency} ${refund.total.toFixed(2)}
-                      </span>
-                      <FiArrowRight size={14} className="text-white/40" />
-                    </div>
-                  </button>
+                    <span className="text-center text-white/50">{getOrderItemCount(order)}</span>
+                    <span className="text-right font-semibold text-white">{formatOrderCurrency(order.totalPrice)}</span>
+                  </Link>
                 );
               })}
+              {refundOrders.length === 0 && (
+                <div className="px-4 py-12 text-center text-white/30">
+                  No refund requests found.
+                </div>
+              )}
             </div>
           </div>
-
-          {selectedRefund && (
-            <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/5 p-4">
-              <p className="text-[10px] uppercase tracking-widest text-emerald-200 mb-3">Selected refund</p>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Refund ID</p>
-                  <p className="text-sm font-semibold text-white truncate">{selectedRefund.id}</p>
-                </div>
-                <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Order</p>
-                  <p className="text-sm font-semibold text-white">{selectedRefund.orderId}</p>
-                </div>
-                <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Status</p>
-                  <p className="text-sm font-semibold text-white">{selectedRefund.status}</p>
-                </div>
-                <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                  <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Total</p>
-                  <p className="text-sm font-semibold text-white">
-                    {selectedRefund.currency} ${selectedRefund.total.toFixed(2)}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3 sm:col-span-2">
-                  <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Reason</p>
-                  <p className="text-sm font-semibold text-white">{selectedRefund.reason}</p>
-                </div>
-              </div>
-              <p className="mt-3 text-xs text-white/60">Updated: {selectedRefund.updated}</p>
-            </div>
-          )}
         </div>
       );
     }
 
     if (activeTab === "track") {
+      const trackableOrders = userOrders.filter(
+        (order) => String(order?.orderStatus || "").toLowerCase() !== "cancelled"
+      );
+
       return (
         <div className="rounded-2xl border border-white/10 bg-[#111114] p-6 lg:p-8 space-y-5">
           <div className="flex items-center justify-between">
@@ -830,13 +637,13 @@ const ProfilePage = () => {
               <h2 className="text-xl font-Playfair font-semibold text-white">Track orders</h2>
             </div>
             <span className="text-xs text-white/40">
-              {ordersLoading ? "Loading..." : `${trackableOrders.length} shipments`}
+              {userOrdersLoading ? "Loading..." : `${trackableOrders.length} shipments`}
             </span>
           </div>
 
-          {ordersError ? <p className="text-sm text-rose-300">{ordersError}</p> : null}
+          {userOrdersError ? <p className="text-sm text-rose-300">{userOrdersError}</p> : null}
 
-          {ordersLoading ? (
+          {userOrdersLoading ? (
             <div className="rounded-xl border border-white/10 bg-[#0f0f12] px-4 py-5 text-sm text-white/55">
               Loading shipment updates...
             </div>
@@ -856,18 +663,13 @@ const ProfilePage = () => {
                 </div>
                 <div className="divide-y divide-white/5">
                   {trackableOrders.map((order) => {
-                    const isActive = selectedTrack?._id === order._id;
                     const style = getStatusStyle(order?.orderStatus);
 
                     return (
-                      <button
+                      <Link
                         key={order._id}
-                        onClick={() => setSelectedTrackId(order._id)}
-                        className={`grid w-full grid-cols-5 items-center gap-3 px-4 py-4 text-left transition ${
-                          isActive
-                            ? "bg-white/5 border-l-2 border-emerald-300/60 shadow-[0_10px_40px_rgba(0,0,0,0.35)]"
-                            : "hover:bg-white/5"
-                        }`}
+                        to={`/profile/order/${order._id}`}
+                        className={`grid w-full grid-cols-5 items-center gap-3 px-4 py-4 text-left transition hover:bg-white/5`}
                       >
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-white truncate">
@@ -889,51 +691,11 @@ const ProfilePage = () => {
                           <FiClock size={13} className="text-white/40" />
                           <span>{formatReadableDate(order?.updatedAt)}</span>
                         </div>
-                      </button>
+                      </Link>
                     );
                   })}
                 </div>
               </div>
-
-              {selectedTrack ? (
-                <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/5 p-4 space-y-4">
-                  <p className="text-[10px] uppercase tracking-widest text-emerald-200">Selected shipment</p>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Order ID</p>
-                      <p className="text-sm font-semibold text-white">
-                        {formatOrderDisplayId(selectedTrack._id)}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Shop</p>
-                      <p className="text-sm font-semibold text-white">{selectedTrack.shopName || "Shop"}</p>
-                    </div>
-                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Status</p>
-                      <p className="text-sm font-semibold text-white">
-                        {formatStatusLabel(selectedTrack.orderStatus)}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Payment</p>
-                      <p className="text-sm font-semibold text-white">
-                        {getPaymentStatusLabel(selectedTrack)}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-white/10 bg-[#0b0b0d] p-3">
-                      <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Updated</p>
-                      <p className="text-sm font-semibold text-white">
-                        {formatReadableDate(selectedTrack.updatedAt)}
-                      </p>
-                    </div>
-                  </div>
-                  <MultiShopOrderBreakdown
-                    shopOrders={getOrderBreakdown(selectedTrack)}
-                    shippingAddress={selectedTrack.shippingAddress}
-                  />
-                </div>
-              ) : null}
             </>
           )}
         </div>
@@ -1129,6 +891,10 @@ const ProfilePage = () => {
       );
     }
 
+    if (activeTab === "inbox") {
+      return <Inbox isSeller={false} />;
+    }
+
     return (
       <div className="rounded-2xl border border-white/10 bg-[#111114] p-6 text-white/70">
         <p className="text-sm">This section is not implemented yet.</p>
@@ -1169,11 +935,11 @@ const ProfilePage = () => {
                     }`}
                   >
                       <span className="flex-shrink-0">
-                      <Icon size={18} />
-                    </span>
-                    <span className="whitespace-nowrap">{label}</span>
-                  </button>
-                </li>
+                        <Icon size={18} />
+                      </span>
+                      <span className="whitespace-nowrap">{label}</span>
+                    </button>
+                  </li>
               ))}
             </ul>
           </div>
@@ -1192,84 +958,7 @@ const ProfilePage = () => {
         }}
         onSubmitAddress={editingAddress ? handleUpdateAddress : handleCreateAddress}
       />
-      {isReviewModalOpen && reviewingItem && (
-        <ReviewModal
-          product={reviewingItem}
-          orderId={selectedOrder?._id}
-          onClose={() => {
-            setReviewModalOpen(false);
-            setReviewingItem(null);
-          }}
-          onReviewSubmitted={() => {
-            refreshOrders();
-            setReviewModalOpen(false);
-            setReviewingItem(null);
-          }}
-        />
-      )}
-      {isRefundModalOpen && requestingRefundItem && (
-        <RefundModal
-          order={requestingRefundItem}
-          onClose={() => {
-            setRefundModalOpen(false);
-            setRequestingRefundItem(null);
-          }}
-          onRefundRequested={() => {
-            refreshOrders();
-            setTimeout(() => {
-              setRefundModalOpen(false);
-              setRequestingRefundItem(null);
-            }, 2000);
-          }}
-        />
-      )}
       <Footer />
-    </div>
-  );
-};
-
-
-const ReviewModal = ({ product, orderId, onClose, onReviewSubmitted }) => {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0b0d] p-6 shadow-2xl">
-        <h3 className="mb-4 font-Playfair text-xl font-semibold text-white">
-          Review for {product.name}
-        </h3>
-        <ReviewForm
-          product={product}
-          orderId={orderId}
-          onReviewAdded={() => {
-            onReviewSubmitted();
-          }}
-        />
-        <button
-          onClick={onClose}
-          className="mt-4 w-full rounded-lg py-2 text-sm text-white/60 hover:text-white"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-};
-
-const RefundModal = ({ order, onClose, onRefundRequested }) => {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0b0d] p-6 shadow-2xl">
-        <h3 className="mb-2 font-Playfair text-xl font-semibold text-white">
-          Request Refund
-        </h3>
-        <p className="text-sm text-white/60 mb-6">
-          Order ID: {formatOrderDisplayId(order._id)}
-        </p>
-        <RefundRequestForm
-          order={order}
-          onClose={onClose}
-          onRefundRequested={onRefundRequested}
-        />
-      </div>
     </div>
   );
 };

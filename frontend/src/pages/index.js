@@ -10,6 +10,7 @@ export { default as ShopPage } from "./shop/ShopPage";
 export { default as CartPage } from "./cart/CartPage";
 export { default as CheckoutPage } from "./cart/CheckoutPage";
 export { default as ProfilePage } from "./user/ProfilePage";
+export { default as OrderDetailsPage } from "./user/OrderDetailsPage";
 export { default as WishlistPage } from "./user/WishlistPage";
 export { default as SellerActivationPage } from "./auth/SellerActivationPage";
 export { default as SellerDashboardPage } from "./seller/SellerDashboardPage";

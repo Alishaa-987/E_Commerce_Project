@@ -8,6 +8,7 @@ import {
   CheckoutPage,
   LandingPage,
   LoginPage,
+  OrderDetailsPage,
   ProductDetailPage,
   ProductsPage,
   ProfilePage,
@@ -175,14 +176,22 @@ const App = () => {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              }
-            />
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <ProfilePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/profile/order/:orderId"
+                  element={
+                    <ProtectedRoute>
+                      <OrderDetailsPage />
+                    </ProtectedRoute>
+                  }
+                />
           </Routes>
         </CartProvider>
       </WishlistProvider>

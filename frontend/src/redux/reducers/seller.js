@@ -50,6 +50,29 @@ export const sellerReducer = createReducer(initialState, (builder) => {
       state.publicShopLoading = false;
       state.publicShopError = action.payload;
     })
+    .addCase("updateSellerInfoRequest", (state) => {
+      state.currentSellerLoading = true;
+      state.currentSellerError = null;
+    })
+    .addCase("updateSellerInfoSuccess", (state, action) => {
+      state.currentSellerLoading = false;
+      state.currentSeller = action.payload;
+    })
+    .addCase("updateSellerInfoFail", (state, action) => {
+      state.currentSellerLoading = false;
+      state.currentSellerError = action.payload;
+    })
+    .addCase("updateSellerPasswordRequest", (state) => {
+      state.currentSellerLoading = true;
+      state.currentSellerError = null;
+    })
+    .addCase("updateSellerPasswordSuccess", (state) => {
+      state.currentSellerLoading = false;
+    })
+    .addCase("updateSellerPasswordFail", (state, action) => {
+      state.currentSellerLoading = false;
+      state.currentSellerError = action.payload;
+    })
     .addCase("clearSellerErrors", (state) => {
       state.currentSellerError = null;
       state.allShopsError = null;

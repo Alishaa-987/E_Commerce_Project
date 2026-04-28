@@ -6,6 +6,9 @@ import { sellerReducer } from "./reducers/seller";
 import { cartReducer } from "./reducers/cart";
 import { orderReducer } from "./reducers/order";
 
+import { conversationReducer } from "./reducers/conversation";
+import { messageReducer } from "./reducers/message";
+
 const Store = configureStore({
   reducer: {
     user: userReducer,
@@ -14,6 +17,8 @@ const Store = configureStore({
     events: eventReducer,
     cart: cartReducer,
     order: orderReducer,
+    conversations: conversationReducer,
+    messages: messageReducer,
   },
 });
 

@@ -43,7 +43,7 @@ export const sellerNavItems = [
     path: "/seller/discount-codes",
   },
   { key: "refunds", label: "Refunds", icon: FiRefreshCw, path: "/seller/refunds" },
-  { key: "settings", label: "Settings", icon: FiSettings, path: "/seller/settings" },
+  { key: "settings", label: "Settings", icon: FiSettings, path: "/seller/profile" },
 ];
 
 export const getSellerNavPath = (key) =>
@@ -133,18 +133,39 @@ export const getSellerWorkspaceData = ({
   const shop = sellerShop || fallbackSeller;
   const resolvedAvatar = sellerAvatar || shop.avatar || "";
 
+  const now = new Date();
+  const processedEvents = (sellerEvents || []).map((event) => {
+    const endDate = new Date(event.Finish_Date || event.endDate);
+    const isExpired = endDate < now;
+    return {
+      ...event,
+      id: event._id || event.id,
+      status: isExpired ? "Expired" : "Running",
+      window: isExpired 
+        ? "Ended" 
+        : `Ends ${new Date(endDate).toLocaleDateString()}`,
+    };
+  });
+
+  // Sort events: Running first, then by end date
+  processedEvents.sort((a, b) => {
+    if (a.status === "Running" && b.status === "Expired") return -1;
+    if (a.status === "Expired" && b.status === "Running") return 1;
+    return new Date(b.Finish_Date || b.endDate) - new Date(a.Finish_Date || a.endDate);
+  });
+
   return {
     storedEmail: storedEmail || shop.email || "",
     sellerShop: shop,
     sellerProducts,
-    sellerProductCount: sellerProducts.length,
+    sellerProductCount: (sellerProducts || []).length,
     sellerAvatar: resolvedAvatar,
     shopMeta: {
       address: shop.address || "No address added yet.",
       phone: shop.phone || "No phone added yet.",
       joinedOn: toReadableJoinedDate(shop.createdAt),
     },
-    runningEvents: sellerEvents,
+    runningEvents: processedEvents,
     shopReviews: [],
   };
 };
@@ -153,6 +174,7 @@ export const getSellerDashboardData = ({
   sellerShop,
   sellerProducts = [],
   sellerEvents = [],
+  sellerOrders = [],
   storedEmail = "",
   sellerAvatar = "",
 }) => {
@@ -165,24 +187,27 @@ export const getSellerDashboardData = ({
   });
   const { sellerShop: shop, sellerProductCount } = workspace;
   const averageRating = getSellerAverageRating(workspace.sellerProducts, shop.rating);
-  const totalRevenue = workspace.sellerProducts.reduce(
-    (sum, product) => sum + Number(product.sold || 0) * Number(product.price || 0),
-    0
-  );
+  
+  // Calculate revenue from orders, excluding refunded ones
+  const totalRevenue = sellerOrders
+    .filter(order => order.status !== "Refund Success" && order.status !== "Cancelled")
+    .reduce((sum, order) => sum + Number(order.totalPrice || 0), 0);
+
+  const soldItemsCount = sellerOrders
+    .filter(order => order.status !== "Cancelled")
+    .reduce((sum, order) => sum + (order.cart?.length || 0), 0);
 
   const overviewCards = [
     {
       label: "Net Revenue",
       value: formatSellerCurrency(totalRevenue),
-      detail: "From sold items",
+      detail: "Excluding refunds",
       metricKey: "revenue",
     },
     {
-      label: "Sold Items",
-      value: workspace.sellerProducts
-        .reduce((sum, product) => sum + Number(product.sold || 0), 0)
-        .toLocaleString(),
-      detail: "Units sold",
+      label: "Items Sold",
+      value: soldItemsCount.toLocaleString(),
+      detail: "Total units",
       metricKey: "orders",
     },
     {
@@ -203,7 +228,7 @@ export const getSellerDashboardData = ({
     ...workspace,
     averageRating,
     totalRevenue,
-    recentOrders: [],
+    recentOrders: sellerOrders.slice(0, 5),
     inboxThreads: [],
     overviewCards,
   };

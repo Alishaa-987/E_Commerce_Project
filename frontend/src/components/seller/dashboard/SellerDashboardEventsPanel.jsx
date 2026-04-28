@@ -12,8 +12,10 @@ const EVENTS_PER_PAGE = 10;
 
 const statusClasses = {
   Live: "border-emerald-300/30 bg-emerald-300/10 text-emerald-200",
+  Running: "border-emerald-300/30 bg-emerald-300/10 text-emerald-200",
   Scheduled: "border-sky-300/30 bg-sky-300/10 text-sky-200",
   Ended: "border-white/15 bg-white/5 text-white/65",
+  Expired: "border-rose-300/30 bg-rose-300/10 text-rose-200",
   Draft: "border-amber-300/30 bg-amber-300/10 text-amber-200",
 };
 

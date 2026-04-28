@@ -10,6 +10,7 @@ const sendMail = require("../utils/sendMail");
 const sendToken = require("../utils/jwtToken");
 const jwt = require("jsonwebtoken");
 const catchAsyncError = require("../middleware/catchAsyncError");
+const { isSellerAuthenticated } = require("../middleware/auth");
 const bcrypt = require("bcryptjs");
 
 const slugify = (value = "") =>
@@ -252,6 +253,52 @@ router.get("/get-all-sellers", catchAsyncError(async (req, res) => {
   res.status(200).json({
     success: true,
     sellers: sellersWithCounts,
+  });
+}));
+
+router.put("/update-seller-info", isSellerAuthenticated, catchAsyncError(async (req, res, next) => {
+  const { shopName, email, phone, address, description, zip } = req.body;
+  const seller = await Seller.findById(req.seller._id);
+
+  if (!seller) {
+    return next(new ErrorHandler("Seller not found", 404));
+  }
+
+  if (shopName) seller.shopName = shopName;
+  if (email) seller.email = email;
+  if (phone) seller.phone = phone;
+  if (address !== undefined) seller.address = address;
+  if (description !== undefined) seller.description = description;
+  if (zip) seller.zip = zip;
+
+  await seller.save();
+  await ensureSellerDefaults(seller);
+
+  res.status(200).json({
+    success: true,
+    seller,
+  });
+}));
+
+router.put("/update-seller-password", isSellerAuthenticated, catchAsyncError(async (req, res, next) => {
+  const { oldPassword, newPassword } = req.body;
+  const seller = await Seller.findById(req.seller._id).select("+password");
+
+  if (!seller) {
+    return next(new ErrorHandler("Seller not found", 404));
+  }
+
+  const isPasswordValid = await bcrypt.compare(oldPassword, seller.password);
+  if (!isPasswordValid) {
+    return next(new ErrorHandler("Current password does not match", 400));
+  }
+
+  seller.password = newPassword;
+  await seller.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Password updated successfully!",
   });
 }));
 

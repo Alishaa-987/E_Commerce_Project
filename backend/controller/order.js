@@ -1,17 +1,27 @@
+
+const VALID_PAYMENT_METHODS = ["card", "paypal", "cod"];
 const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
 
-const VALID_PAYMENT_METHODS = ["card", "paypal", "cod"];
+const Order = require("../model/order.js");
+const Product = require("../model/product");
+const ErrorHandler = require("../utils/ErrorHandler");
 
+const {
+  isAuthenticated,
+  isSellerAuthenticated
+} = require("../middleware/auth");
+
+const catchAsyncError = require("../middleware/catchAsyncError");
 const normalizePaymentMethod = (paymentMethod = "card") => {
-  const normalizedPaymentMethod = String(paymentMethod || "card")
-    .trim()
-    .toLowerCase();
+const normalizedPaymentMethod = String(paymentMethod || "card")
+  .trim()
+  .toLowerCase();
 
-  return VALID_PAYMENT_METHODS.includes(normalizedPaymentMethod)
-    ? normalizedPaymentMethod
-    : "card";
+return VALID_PAYMENT_METHODS.includes(normalizedPaymentMethod)
+  ? normalizedPaymentMethod
+  : "card";
 };
 
 const normalizePaymentInfo = (paymentInfo, paymentMethod) => {
@@ -258,17 +268,26 @@ router.get(
  */
 router.get(
   "/seller-orders/:shopId",
+  isSellerAuthenticated,
   catchAsyncError(async (req, res, next) => {
     try {
-      const shopId = String(req.params.shopId || "").trim();
+      // Use the authenticated seller's ID for better security and to avoid frontend ID mismatches
+      const shopId = req.seller?._id ? req.seller._id.toString() : req.params.shopId;
 
       if (!shopId) {
-        return next(new ErrorHandler("Shop id is required.", 400));
+        return next(new ErrorHandler("Seller authentication required.", 400));
       }
 
-      const orders = await Order.find({ shopId })
+      // Search by both top-level shopId and shopOrders nested field for maximum compatibility
+      const orders = await Order.find({
+        $or: [
+          { shopId: shopId },
+          { "shopOrders.shopId": shopId }
+        ]
+      })
         .populate("user", "name email phoneNumber")
         .sort({ createdAt: -1 });
+
 
       res.status(200).json({
         success: true,
@@ -282,12 +301,13 @@ router.get(
   })
 );
 
+
 /**
- * GET /order/:id
+ * GET /:id
  * Get single order details with authorization check
  */
 router.get(
-  "/order/:id",
+  "/:id",
   isAuthenticated,
   catchAsyncError(async (req, res, next) => {
     try {
@@ -318,11 +338,11 @@ router.get(
 );
 
 /**
- * GET /order/:id/shop-orders
+ * GET /:id/shop-orders
  * Get shop orders breakdown for a specific order
  */
 router.get(
-  "/order/:id/shop-orders",
+  "/:id/shop-orders",
   isAuthenticated,
   catchAsyncError(async (req, res, next) => {
     try {
@@ -349,11 +369,11 @@ router.get(
 );
 
 /**
- * PUT /order/:id/status
+ * PUT /:id/status
  * Update order status (for admin/seller use)
  */
 router.put(
-  "/order/:id/status",
+  "/:id/status",
   isSellerAuthenticated,
   catchAsyncError(async (req, res, next) => {
     const { orderStatus, paymentStatus } = req.body;
@@ -419,11 +439,11 @@ router.put(
 );
 
 /**
- * POST /order/:id/message
+ * POST /:id/message
  * Send message from seller to customer
  */
 router.post(
-  "/order/:id/message",
+  "/:id/message",
   isSellerAuthenticated,
   catchAsyncError(async (req, res, next) => {
     const { userId, message } = req.body;
@@ -455,7 +475,7 @@ router.post(
   })
 );
 router.put(
-  "/order/:id/shop-order/:shopOrderId/status",
+  "/:id/shop-order/:shopOrderId/status",
   isAuthenticated,
   catchAsyncError(async (req, res, next) => {
     const { status, shippedAt, deliveredAt } = req.body;
@@ -502,11 +522,11 @@ router.put(
 
 
 /**
- * POST /order/:id/request-refund
+ * POST /:id/request-refund
  * Request a refund for a delivered order
  */
 router.post(
-  "/order/:id/request-refund",
+  "/:id/request-refund",
   isAuthenticated,
   catchAsyncError(async (req, res, next) => {
     const { reason } = req.body;
@@ -575,11 +595,35 @@ router.post(
 );
 
 /**
- * GET /order/:id/refund-status
+ * GET /get-seller-refund-orders/:shopId
+ * Fetch all orders with refund requests for a seller
+ */
+router.get(
+  "/get-seller-refund-orders/:shopId",
+  isSellerAuthenticated,
+  catchAsyncError(async (req, res, next) => {
+    try {
+      const orders = await Order.find({
+        shopId: req.params.shopId,
+        "refund.requested": true,
+      }).sort({ updatedAt: -1 });
+
+      res.status(200).json({
+        success: true,
+        orders,
+      });
+    } catch (error) {
+      return next(new ErrorHandler(error.message, 500));
+    }
+  })
+);
+
+/**
+ * GET /:id/refund-status
  * Get refund status for an order
  */
 router.get(
-  "/order/:id/refund-status",
+  "/:id/refund-status",
   isAuthenticated,
   catchAsyncError(async (req, res, next) => {
     try {
@@ -607,11 +651,11 @@ router.get(
 );
 
 /**
- * PUT /order/:id/refund-status (for sellers/admin)
+ * PUT /:id/refund-status (for sellers/admin)
  * Update refund status
  */
 router.put(
-  "/order/:id/refund-status",
+  "/:id/refund-status",
   isSellerAuthenticated,
   catchAsyncError(async (req, res, next) => {
     const { status, notes } = req.body;
@@ -666,8 +710,80 @@ router.put(
     } catch (error) {
       return next(new ErrorHandler(error.message || "Failed to update refund status.", 500));
     }
-  })
+  })  
 );
 
+/**
+ * GET /check-purchase/:productId
+ * Check if the authenticated user has purchased a specific product
+ */
+router.get(
+  "/check-purchase/:productId",
+  isAuthenticated,
+  catchAsyncError(async (req, res, next) => {
+    const { productId } = req.params;
+
+    if (!productId) {
+      return next(new ErrorHandler("Product ID is required.", 400));
+    }
+
+    try {
+      // Find orders containing this product by checking cart items
+      const orders = await Order.find({
+        user: req.user._id,
+      }).sort({ createdAt: -1 });
+
+      // Filter orders that contain this product
+      const ordersWithProduct = orders.filter((order) =>
+        order.cart?.some(
+          (item) =>
+            item.product?.toString() === productId ||
+            item.id?.toString() === productId ||
+            item._id?.toString() === productId
+        )
+      );
+
+      const hasPurchased = ordersWithProduct.length > 0;
+      const deliveredOrder = ordersWithProduct.find(
+        (order) => order.orderStatus === "delivered"
+      );
+
+      const purchasedOrders = ordersWithProduct.map((order) => {
+        const item = order.cart?.find(
+          (item) =>
+            item.product?.toString() === productId ||
+            item.id?.toString() === productId ||
+            item._id?.toString() === productId
+        );
+        return {
+          orderId: order._id,
+          orderStatus: order.orderStatus,
+          deliveredAt: order.deliveredAt,
+          canReview: order.orderStatus === "delivered" && !item?.reviewSubmitted,
+          item,
+        };
+      });
+
+      const reviewSubmitted = purchasedOrders.some(
+        (po) => po.item?.reviewSubmitted
+      );
+
+      res.status(200).json({
+        success: true,
+        hasPurchased,
+        hasDelivered: Boolean(deliveredOrder),
+        orders: purchasedOrders,
+        reviewSubmitted,
+      });
+    } catch (error) {
+      return next(
+        new ErrorHandler(
+          error.message || "Failed to check purchase status.",
+          500
+        )
+      );
+    }
+  })
+);
 
 module.exports = router;

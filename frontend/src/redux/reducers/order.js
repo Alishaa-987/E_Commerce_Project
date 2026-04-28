@@ -6,6 +6,8 @@ const initialState = {
   error: null,
   order: null,
   orders: [],
+  userOrders: [],
+  sellerOrders: [],
   orderCreateError: null,
   ordersError: null,
   sellerOrdersError: null,
@@ -16,6 +18,15 @@ const initialState = {
   sellerOrdersError: null,
   orderDetailsLoading: false,
   orderDetails: null,
+  purchaseCheck: {
+    loading: false,
+    error: null,
+    hasPurchased: false,
+    hasDelivered: false,
+    userOrders: [],
+    sellerOrders: [],
+    reviewSubmitted: false,
+  },
 };
 
 export const orderReducer = createReducer(initialState, (builder) => {
@@ -45,7 +56,8 @@ export const orderReducer = createReducer(initialState, (builder) => {
     })
     .addCase("getUserOrdersSuccess", (state, action) => {
       state.userOrdersLoading = false;
-      state.orders = action.payload;
+      state.userOrders = action.payload;
+      state.orders = action.payload; // Maintain for backward compatibility if needed
     })
     .addCase("getUserOrdersFail", (state, action) => {
       state.userOrdersLoading = false;
@@ -58,7 +70,8 @@ export const orderReducer = createReducer(initialState, (builder) => {
     })
     .addCase("getSellerOrdersSuccess", (state, action) => {
       state.sellerOrdersLoading = false;
-      state.orders = action.payload;
+      state.sellerOrders = action.payload;
+      state.orders = action.payload; // Maintain for backward compatibility if needed
     })
     .addCase("getSellerOrdersFail", (state, action) => {
       state.sellerOrdersLoading = false;
@@ -78,14 +91,19 @@ export const orderReducer = createReducer(initialState, (builder) => {
       state.orderDetailsError = action.payload;
     })
     .addCase("orderUpdated", (state, action) => {
-      // Update order in orders list if it exists
-      if (state.orders && Array.isArray(state.orders)) {
-        state.orders = state.orders.map((order) =>
+      // Update order in various arrays if it exists
+      const updateArray = (arr) => {
+        if (!arr || !Array.isArray(arr)) return arr;
+        return arr.map((order) =>
           order._id === action.payload._id || order.id === action.payload.id
             ? action.payload
             : order
         );
-      }
+      };
+
+      state.orders = updateArray(state.orders);
+      state.userOrders = updateArray(state.userOrders);
+      state.sellerOrders = updateArray(state.sellerOrders);
       // Update orderDetails if it's the same order
       if (state.orderDetails) {
         const currentId = state.orderDetails._id || state.orderDetails.id;
@@ -102,6 +120,18 @@ export const orderReducer = createReducer(initialState, (builder) => {
           state.order = action.payload;
         }
       }
+    })
+    .addCase("getSellerRefundOrdersRequest", (state) => {
+      state.sellerOrdersLoading = true;
+      state.sellerOrdersError = null;
+    })
+    .addCase("getSellerRefundOrdersSuccess", (state, action) => {
+      state.sellerOrdersLoading = false;
+      state.sellerOrders = action.payload;
+    })
+    .addCase("getSellerRefundOrdersFail", (state, action) => {
+      state.sellerOrdersLoading = false;
+      state.sellerOrdersError = action.payload;
     })
     .addCase("updateProductInventory", (state, action) => {
       // This updates products in various order arrays - similar to product reducer
@@ -149,11 +179,26 @@ export const orderReducer = createReducer(initialState, (builder) => {
         };
       }
     })
-     .addCase("clearErrors", (state) => {
-       state.error = null;
-       state.orderCreateError = null;
-       state.ordersError = null;
-       state.sellerOrdersError = null;
-       state.orderDetailsError = null;
-     });
-});
+      .addCase("clearErrors", (state) => {
+        state.error = null;
+        state.orderCreateError = null;
+        state.ordersError = null;
+        state.sellerOrdersError = null;
+        state.orderDetailsError = null;
+      })
+      .addCase("checkProductPurchaseRequest", (state) => {
+        state.purchaseCheck.loading = true;
+        state.purchaseCheck.error = null;
+      })
+      .addCase("checkProductPurchaseSuccess", (state, action) => {
+        state.purchaseCheck.loading = false;
+        state.purchaseCheck.hasPurchased = action.payload.hasPurchased;
+        state.purchaseCheck.hasDelivered = action.payload.hasDelivered;
+        state.purchaseCheck.orders = action.payload.orders || [];
+        state.purchaseCheck.reviewSubmitted = action.payload.reviewSubmitted;
+      })
+      .addCase("checkProductPurchaseFail", (state, action) => {
+        state.purchaseCheck.loading = false;
+        state.purchaseCheck.error = action.payload;
+      });
+  });

@@ -24,19 +24,25 @@ export const decodeText = (value = "") => {
   }
 };
 export const toAbsoluteAssetUrl = (asset) => {
-  if (!asset) {
-    return "";
+  const normalizedAsset = String(asset || "").replace(/\\/g, "/");
+
+  // If it's already an absolute URL that mistakenly includes /uploads/
+  if (normalizedAsset.includes(`${backend_url}uploads/`)) {
+    return normalizedAsset.replace(`${backend_url}uploads/`, backend_url);
   }
 
   if (
-    asset.startsWith("http://") ||
-    asset.startsWith("https://") ||
-    asset.startsWith("data:")
+    normalizedAsset.startsWith("http://") ||
+    normalizedAsset.startsWith("https://") ||
+    normalizedAsset.startsWith("data:")
   ) {
-    return asset;
+    return normalizedAsset;
   }
 
-  return `${backend_url}${asset.replace(/^\/+/, "")}`;
+  // Remove redundant 'uploads/' prefix if it exists at the start of the relative path
+  const cleanAsset = normalizedAsset.replace(/^uploads\//, "");
+
+  return `${backend_url}${cleanAsset.replace(/^\/+/, "")}`;
 };
 
 const buildSvgPlaceholder = ({
@@ -246,8 +252,8 @@ export const normalizeProduct = (product = {}) => {
     couponCode: decodeText(product?.couponCode || ""),
     price,
     originalPrice,
-    rating: toNumber(product?.rating, shop?.rating || 0),
-    reviews: toNumber(product?.reviews, 0),
+    rating: toNumber(product?.rating, 0),
+    reviews: Array.isArray(product?.reviews) ? product.reviews : [],
     image,
     gallery: gallery.length ? gallery : image ? [image] : [],
     shopId,

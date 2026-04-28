@@ -81,7 +81,7 @@ export const getSellerOrders = (shopId) => async (dispatch) => {
   dispatch({ type: "getSellerOrdersRequest" });
 
   try {
-    const { data } = await axios.get(`${server}/order/seller-orders/${shopId}`);
+    const { data } = await axios.get(`${server}/order/seller-orders/${shopId}`, { withCredentials: true });
 
 
     const cleanedOrders = Array.isArray(data.orders)
@@ -108,7 +108,7 @@ export const getOrderDetails = (orderId) => async (dispatch) => {
   dispatch({ type: "getOrderDetailsRequest" });
 
   try {
-    const { data } = await axios.get(`${server}/order/order/${orderId}`, {
+    const { data } = await axios.get(`${server}/order/${orderId}`, {
       withCredentials: true,
     });
 
@@ -150,7 +150,7 @@ export const updateOrderStatus = (orderId, orderStatus) => async (dispatch) => {
     // If status changed to "delivered", update product inventory
     if (orderStatus === "delivered") {
       // Get the order details to access cart items
-      const orderResponse = await axios.get(`${server}/order/order/${orderId}`, {
+      const orderResponse = await axios.get(`${server}/order/${orderId}`, {
         withCredentials: true,
       });
 
@@ -254,7 +254,7 @@ export const getRefundStatus = (orderId) => async (dispatch) => {
     };
   } catch (error) {
     const message = error.response?.data?.message || "Failed to fetch refund status.";
-
+    
     return {
       success: false,
       message,
@@ -262,3 +262,80 @@ export const getRefundStatus = (orderId) => async (dispatch) => {
   }
 };
 
+export const checkProductPurchase = (productId) => async (dispatch) => {
+  dispatch({ type: "checkProductPurchaseRequest" });
+  
+  try {
+    const { data } = await axios.get(`${server}/order/check-purchase/${productId}`, {
+      withCredentials: true,
+    });
+
+    dispatch({ type: "checkProductPurchaseSuccess", payload: data });
+    return {
+      success: true,
+      ...data,
+    };
+  } catch (error) {
+    const message = error.response?.data?.message || "Failed to check purchase status.";
+    dispatch({ type: "checkProductPurchaseFail", payload: message });
+    
+    return {
+      success: false,
+      message,
+    };
+  }
+};
+export const getSellerRefundOrders = (shopId) => async (dispatch) => {
+  dispatch({ type: "getSellerRefundOrdersRequest" });
+
+  try {
+    const { data } = await axios.get(`${server}/order/get-seller-refund-orders/${shopId}`, {
+      withCredentials: true,
+    });
+
+    const cleanedOrders = Array.isArray(data.orders)
+      ? data.orders.map(normalizeOrderPayload)
+      : [];
+
+    dispatch({ type: "getSellerRefundOrdersSuccess", payload: cleanedOrders });
+    return {
+      success: true,
+      orders: cleanedOrders,
+    };
+  } catch (error) {
+    const message = error.response?.data?.message || "Failed to fetch refund orders.";
+    dispatch({ type: "getSellerRefundOrdersFail", payload: message });
+
+    return {
+      success: false,
+      message,
+    };
+  }
+};
+export const updateRefundStatus = (orderId, status, notes = "") => async (dispatch) => {
+  try {
+    const { data } = await axios.put(
+      `${server}/order/${orderId}/refund-status`,
+      { status, notes },
+      {
+        withCredentials: true,
+      }
+    );
+
+    // Update the order in state
+    dispatch({ type: "orderUpdated", payload: data.refund }); 
+    // Wait, the backend returns data.refund, but we need the whole order object to update the list easily.
+    // Let's check what the backend returns.
+    
+    return {
+      success: true,
+      message: data.message,
+    };
+  } catch (error) {
+    const message = error.response?.data?.message || "Failed to update refund status.";
+    return {
+      success: false,
+      message,
+    };
+  }
+};

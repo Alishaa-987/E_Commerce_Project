@@ -55,6 +55,14 @@ export const productReducer = createReducer(initialState, (builder) => {
     .addCase("getProductDetailsSuccess", (state, action) => {
       state.productDetailsLoading = false;
       state.productDetails = action.payload;
+      // Also update the product in allProducts array
+      if (state.allProducts && Array.isArray(state.allProducts)) {
+        state.allProducts = state.allProducts.map(product => {
+          const productId = product._id || product.id;
+          const payloadId = action.payload._id || action.payload.id;
+          return productId === payloadId ? action.payload : product;
+        });
+      }
     })
     .addCase("getProductDetailsFail", (state, action) => {
       state.productDetailsLoading = false;

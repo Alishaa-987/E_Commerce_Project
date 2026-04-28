@@ -16,20 +16,35 @@ const formatMoney = (value) => Number(value || 0).toFixed(2);
 
 const Events = () => {
   const { allEvents, allEventsLoading } = useSelector((state) => state.events);
+  const processedEvents = useMemo(() => {
+    const now = new Date();
+    return [...allEvents].map((event) => {
+      const endDate = new Date(event.Finish_Date || event.endDate);
+      const isExpired = endDate < now;
+      return {
+        ...event,
+        dynamicStatus: isExpired ? "Ended" : event.status,
+        id: event._id || event.id,
+      };
+    });
+  }, [allEvents]);
+
   const featuredEvent = useMemo(
     () =>
-      [...allEvents].sort((a, b) => {
-        const statusDiff =
-          (statusPriority[a.status] ?? 99) - (statusPriority[b.status] ?? 99);
-        if (statusDiff !== 0) {
-          return statusDiff;
-        }
+      [...processedEvents]
+        .filter(e => e.dynamicStatus !== "Ended") // Only show non-ended events as featured
+        .sort((a, b) => {
+          const statusDiff =
+            (statusPriority[a.dynamicStatus] ?? 99) - (statusPriority[b.dynamicStatus] ?? 99);
+          if (statusDiff !== 0) {
+            return statusDiff;
+          }
 
-        const aTime = new Date(a.endDate || a.startDate || 0).getTime();
-        const bTime = new Date(b.endDate || b.startDate || 0).getTime();
-        return aTime - bTime;
-      })[0],
-    [allEvents]
+          const aTime = new Date(a.endDate || a.startDate || 0).getTime();
+          const bTime = new Date(b.endDate || b.startDate || 0).getTime();
+          return aTime - bTime;
+        })[0],
+    [processedEvents]
   );
 
   if (allEventsLoading) {
@@ -86,8 +101,8 @@ const Events = () => {
     ? `/shop/${featuredEvent.shopHandle}`
     : "/products";
   const countdownLabel =
-    featuredEvent.status === "Scheduled" ? "Starts in" : "Sale ends in";
-  const eventMetaLabel = featuredEvent.status === "Scheduled" ? "Starts soon" : "Live now";
+    featuredEvent.dynamicStatus === "Scheduled" ? "Starts in" : "Sale ends in";
+  const eventMetaLabel = featuredEvent.dynamicStatus === "Scheduled" ? "Starts soon" : "Live now";
   const headline =
     discount > 0
       ? `Up to ${discount}% off on limited event picks`
@@ -159,7 +174,7 @@ const Events = () => {
                   />
                   <div className="absolute right-4 top-4 rounded-xl bg-emerald-300 px-4 py-2 text-center">
                     <p className="text-xs font-bold uppercase text-[#0b0b0d]">
-                      {discount > 0 ? `-${discount}%` : featuredEvent.status}
+                      {discount > 0 ? `-${discount}%` : featuredEvent.dynamicStatus}
                     </p>
                   </div>
                 </div>
@@ -182,7 +197,7 @@ const Events = () => {
                     </div>
                     <div className="flex items-center gap-1.5 text-sm text-white/50">
                       <AiFillStar size={14} className="text-emerald-300" />
-                      {featuredEvent.status} | {featuredEvent.stock} units
+                      {featuredEvent.dynamicStatus} | {featuredEvent.stock} units
                     </div>
                   </div>
                   <p className="mt-4 text-sm text-white/35">{featuredEvent.window}</p>

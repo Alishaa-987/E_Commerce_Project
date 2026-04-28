@@ -191,7 +191,11 @@ const SellerDashboardOverviewPanel = ({
                       <p className="text-sm font-semibold text-white">{event.title}</p>
                       <p className="mt-1 text-xs text-white/45">{event.window}</p>
                     </div>
-                    <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-[11px] font-semibold text-emerald-200">
+                    <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${
+                        event.status === "Expired" 
+                        ? "border-rose-400/20 bg-rose-400/10 text-rose-300" 
+                        : "border-emerald-300/20 bg-emerald-300/10 text-emerald-200"
+                    }`}>
                       {event.status}
                     </span>
                   </div>

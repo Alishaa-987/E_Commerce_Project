@@ -127,12 +127,19 @@ const ShopPage = ({ section = "products" }) => {
       return [];
     }
 
+    const now = new Date();
     return allEvents
-      .filter(
-        (event) =>
-          event.shopId === shop.id &&
-          (event.status === "Live" || event.status === "Scheduled")
-      )
+      .filter((event) => event.shopId === shop.id)
+      .map((event) => {
+        const endDate = new Date(event.Finish_Date || event.endDate);
+        const isExpired = endDate < now;
+        return {
+          ...event,
+          dynamicStatus: isExpired ? "Ended" : event.status,
+          id: event._id || event.id,
+        };
+      })
+      .filter((event) => event.dynamicStatus !== "Ended") // Only show active/scheduled events
       .sort((a, b) => {
         if (a.status !== b.status) {
           return a.status === "Live" ? -1 : 1;
@@ -327,14 +334,14 @@ const ShopPage = ({ section = "products" }) => {
             <div className="flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] uppercase tracking-[0.28em] text-white/55">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
-                {spotlightEvent.status === "Scheduled" ? "Starts soon" : "Live now"}
+                {spotlightEvent.dynamicStatus === "Scheduled" ? "Starts soon" : "Live now"}
               </span>
               <span
                 className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-                  statusClasses[spotlightEvent.status] || statusClasses.Draft
+                  statusClasses[spotlightEvent.dynamicStatus] || statusClasses.Draft
                 }`}
               >
-                {spotlightEvent.status}
+                {spotlightEvent.dynamicStatus}
               </span>
             </div>
 
@@ -431,10 +438,10 @@ const ShopPage = ({ section = "products" }) => {
                   </p>
                   <span
                     className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-                      statusClasses[event.status] || statusClasses.Draft
+                      statusClasses[event.dynamicStatus] || statusClasses.Draft
                     }`}
                   >
-                    {event.status}
+                    {event.dynamicStatus}
                   </span>
                 </div>
                 <h3 className="mt-4 text-2xl font-Playfair font-semibold text-white transition group-hover:text-emerald-200">
