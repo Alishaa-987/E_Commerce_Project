@@ -11,5 +11,13 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
+// Start the server if run directly (e.g. npm run dev)
+if (require.main === module) {
+  const PORT = process.env.PORT || 8000;
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+}
+
 module.exports = app;
 module.exports.handler = serverless(app);

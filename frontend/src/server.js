@@ -1,2 +1,2 @@
-export const server = "/api/v2";
-export const backend_url = "/";
+export const server = process.env.NODE_ENV === "production" ? "/api/v2" : "http://localhost:8000/api/v2";
+export const backend_url = process.env.NODE_ENV === "production" ? "/" : "http://localhost:8000/";
