@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import {  useSearchParams } from "react-router-dom";
 import { getAllConversationsUser, getAllConversationsSeller } from "../../redux/actions/conversation";
 import { createMessage, getAllMessages } from "../../redux/actions/message";
 import { FiSend, FiUser, FiMoreVertical, FiImage, FiSmile, FiMessageSquare } from "react-icons/fi";
@@ -16,11 +16,10 @@ const Inbox = ({ isSeller }) => {
 
   const { user } = useSelector((state) => state.user);
   const { currentSeller } = useSelector((state) => state.seller);
-  const { conversations, isLoading } = useSelector((state) => state.conversations);
+  const { conversations } = useSelector((state) => state.conversations);
   const { messages } = useSelector((state) => state.messages);
 
   const [open, setOpen] = useState(false);
-  const [activeStatus, setActiveStatus] = useState(false);
   const [currentChat, setCurrentChat] = useState(null);
   const [newMessage, setNewMessage] = useState("");
   const scrollRef = useRef(null);

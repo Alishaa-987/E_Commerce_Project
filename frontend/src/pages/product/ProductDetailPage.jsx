@@ -9,7 +9,6 @@ import {
   FiShield,
   FiShoppingCart,
   FiTruck,
-  FiRefreshCw,
 } from "react-icons/fi";
 import { useDispatch, useSelector } from "react-redux";
 import ProductCard from "../../components/cards/ProductCard";
@@ -51,7 +50,7 @@ const ProductDetailPage = () => {
   );
   const { allShops = [] } = useSelector((state) => state.seller);
   const { isAuthenticated, user } = useSelector((state) => state.user);
-  const { orders: userOrders } = useSelector((state) => state.order);
+  // const { orders: userOrders } = useSelector((state) => state.order);
   const { purchaseCheck } = useSelector((state) => state.order);
 
   const product = useMemo(() => {
@@ -75,7 +74,7 @@ const ProductDetailPage = () => {
 
 
   const productId = product?.id || product?._id || "";
-  const socketRef = useRef(null);
+  // const socketRef = useRef(null);
 
   useEffect(() => {
     setFallbackEvent(null);

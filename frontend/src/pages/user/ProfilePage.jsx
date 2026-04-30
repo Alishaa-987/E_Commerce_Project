@@ -133,49 +133,7 @@ const getOrderItemCount = (order = {}) => {
   return order.cart.reduce((sum, item) => sum + Number(item?.qty || 1), 0);
 };
 
-const getPaymentMethodLabel = (value = "") => {
-  const normalizedValue = String(value || "").trim().toLowerCase();
 
-  if (normalizedValue === "cod") {
-    return "Cash on Delivery";
-  }
-
-  if (normalizedValue === "card") {
-    return "Card";
-  }
-
-  if (normalizedValue === "paypal") {
-    return "PayPal";
-  }
-
-  return formatStatusLabel(normalizedValue || "card");
-};
-
-const getPaymentStatusLabel = (order = {}) => {
-  if (String(order?.paymentMethod || "").trim().toLowerCase() === "cod") {
-    return String(order?.paymentStatus || "").trim().toLowerCase() === "pending"
-      ? "Pay on Delivery"
-      : formatStatusLabel(order?.paymentStatus);
-  }
-
-  return formatStatusLabel(order?.paymentStatus || "pending");
-};
-
-const getOrderBreakdown = (order = {}) => {
-  if (Array.isArray(order?.shopOrders) && order.shopOrders.length) {
-    return order.shopOrders;
-  }
-
-  return [
-    {
-      shopId: order?.shopId || "",
-      shopName: order?.shopName || "Shop",
-      items: order?.cart || [],
-      subTotal: Number(order?.subTotal || order?.totalPrice || 0),
-      status: order?.orderStatus || "pending",
-    },
-  ];
-};
 
 const mockRefunds = [
   {
@@ -236,7 +194,6 @@ const ProfilePage = () => {
   });
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
-  const [selectedRefund, setSelectedRefund] = useState(mockRefunds[0]);
   const savedAddresses = user?.addresses || [];
 
   const tabs = useMemo(

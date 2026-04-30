@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import {
   FiArrowLeft,
   FiPackage,
-  FiTruck,
   FiCheckCircle,
   FiClock,
   FiXCircle,
@@ -51,7 +50,6 @@ const formatCurrency = (value = 0) => `$${Number(value || 0).toFixed(2)}`;
 
 const OrderDetailsPage = () => {
   const { orderId } = useParams();
-  const navigate = useNavigate();
   const dispatch = useDispatch();
   
   const { orderDetails, orderDetailsLoading, orderDetailsError } = useSelector(
@@ -61,7 +59,7 @@ const OrderDetailsPage = () => {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewingItem, setReviewingItem] = useState(null);
   const [showRefundForm, setShowRefundForm] = useState(false);
-  const [refundingItem, setRefundingItem] = useState(null);
+  // const [refundingItem, setRefundingItem] = useState(null);
 
   useEffect(() => {
     if (orderId) {
@@ -334,7 +332,6 @@ const OrderDetailsPage = () => {
                 </p>
                 <button
                   onClick={() => {
-                    setRefundingItem(order);
                     setShowRefundForm(true);
                   }}
                   className="text-xs font-semibold text-rose-300 border border-rose-300/30 rounded px-4 py-2 hover:bg-rose-300/10 transition"
@@ -347,7 +344,6 @@ const OrderDetailsPage = () => {
                 <button
                   onClick={() => {
                     setShowRefundForm(false);
-                    setRefundingItem(null);
                   }}
                   className="mb-4 text-xs text-white/50 hover:text-white"
                 >
@@ -358,7 +354,7 @@ const OrderDetailsPage = () => {
                   onRefundRequested={() => {
                     dispatch(getOrderDetails(orderId));
                     setShowRefundForm(false);
-                    setRefundingItem(null);
+                  
                   }}
                 />
               </div>

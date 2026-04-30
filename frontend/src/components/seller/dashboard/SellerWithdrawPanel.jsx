@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { FiDollarSign, FiClock, FiCheckCircle, FiAlertCircle, FiArrowUpRight, FiFilter } from "react-icons/fi";
+import React, {useState } from "react";
+import {  useSelector } from "react-redux";
+import { FiDollarSign, FiAlertCircle, FiArrowUpRight } from "react-icons/fi";
 import { formatSellerCurrency } from "../sellerSession";
 import { format } from "timeago.js";
 
 const SellerWithdrawPanel = () => {
-  const { currentSeller } = useSelector((state) => state.seller);
+//   const { currentSeller } = useSelector((state) => state.seller);
   const { sellerOrders } = useSelector((state) => state.order);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   
