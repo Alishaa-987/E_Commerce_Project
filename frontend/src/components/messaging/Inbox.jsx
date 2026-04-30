@@ -241,7 +241,7 @@ const ConversationList = ({ item, index, userId, setCurrentChat, setOpen, isSell
       <div className="relative">
         <div className="h-12 w-12 rounded-full bg-white/5 flex items-center justify-center text-white/20 border border-white/10 group-hover:border-white/20">
             {avatar && !avatar.includes("undefined") && !avatar.endsWith("/") ? (
-                <img src={avatar} className="h-full w-full rounded-full object-cover" />
+                <img src={avatar} alt={name || "User Avatar"} className="h-full w-full rounded-full object-cover" />
             ) : (
                 <div className="flex h-full w-full items-center justify-center rounded-full bg-white/5 text-xs font-bold text-white/30 uppercase">
                     {name?.charAt(0) || "?"}
