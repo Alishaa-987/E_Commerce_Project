@@ -1,0 +1,26 @@
+﻿# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.cursor/
+.kombi/
+.kombai/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build output (generated during deployment)
+frontend/build
+
+node_modules
