@@ -86,7 +86,11 @@ const ProductDetailPage = () => {
   useEffect(() => {
     if (!productId) return;
 
-    const socket = io("http://localhost:8000", {
+    const socketUrl = process.env.NODE_ENV === "production"
+      ? window.location.origin
+      : "http://localhost:8000";
+
+    const socket = io(socketUrl, {
       path: "/socket.io",
       withCredentials: true,
       reconnection: true,

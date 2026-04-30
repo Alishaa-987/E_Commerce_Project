@@ -1,11 +1,26 @@
 const mongoose = require('mongoose');
 
-const connectionDatabase = ()=>{
-    mongoose.connect(process.env.DB_URL)
-    .then((data) => console.log(`mongo connected with sever: ${data.connection.host}`))
-    .catch((err) => console.log(err));
-}
+let cachedConnection = null;
+
+const connectionDatabase = async () => {
+  if (cachedConnection && mongoose.connection.readyState === 1) {
+    return cachedConnection;
+  }
+  
+  try {
+    const connection = await mongoose.connect(process.env.DB_URL, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    cachedConnection = connection;
+    console.log(`mongo connected with server: ${connection.connection.host}`);
+    return connection;
+  } catch (err) {
+    console.log('MongoDB connection error:', err);
+    throw err;
+  }
+};
 
 module.exports = {
-    connectionDatabase
-}
+  connectionDatabase
+};

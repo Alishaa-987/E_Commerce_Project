@@ -1,11 +1,9 @@
 const express = require("express");
-const fs = require("fs");
-const path = require("path");
 const router = express.Router();
 const Event = require("../model/event");
 const Seller = require("../model/seller");
 const ErrorHandler = require("../utils/ErrorHandler");
-const { upload } = require("../multer");
+const { upload, uploadToCloudinary } = require("../multer");
 const catchAsyncError = require("../middleware/catchAsyncError");
 
 const addDays = (date, days) => {
@@ -42,7 +40,10 @@ router.post(
       );
     }
 
-    const imageUrls = req.files.map((file) => file.filename);
+    const imageUrls = await Promise.all(
+      req.files.map((file) => uploadToCloudinary(file.buffer, "events"))
+    );
+
     const eventData = {
       ...req.body,
       images: imageUrls,
@@ -121,13 +122,6 @@ router.delete(
       return next(new ErrorHandler("Event not found", 404));
     }
 
-    await Promise.all(
-      (event.images || []).map(async (image) => {
-        try {
-          await fs.promises.unlink(path.join("uploads", path.basename(image)));
-        } catch {}
-      })
-    );
     await Event.deleteOne({ _id: event._id });
 
     res.status(200).json({

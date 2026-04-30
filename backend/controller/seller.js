@@ -1,11 +1,9 @@
 const express = require("express");
-const path = require("path");
-const fs = require("fs");
 const router = express.Router();
 const Seller = require("../model/seller");
 const Product = require("../model/product");
 const ErrorHandler = require("../utils/ErrorHandler");
-const { uploadSeller } = require("../multer");
+const { upload, uploadToCloudinary } = require("../multer");
 const sendMail = require("../utils/sendMail");
 const sendToken = require("../utils/jwtToken");
 const jwt = require("jsonwebtoken");
@@ -108,7 +106,7 @@ const attachProductCounts = async (sellers) => {
 };
 
 // Create seller and send activation email
-router.post("/create-seller", uploadSeller.single("file"), async (req, res, next) => {
+router.post("/create-seller", upload.single("file"), async (req, res, next) => {
   try {
     const { shopName, email, password, phone, zip } = req.body;
 
@@ -118,16 +116,21 @@ router.post("/create-seller", uploadSeller.single("file"), async (req, res, next
 
     const existingSeller = await Seller.findOne({ email });
     if (existingSeller) {
-      if (req.file) {
-        fs.unlink(path.join("uploads", "sellers", req.file.filename), () => {});
-      }
       return next(new ErrorHandler("Seller with this email already exists", 400));
     }
 
-    const avatar = req.file ? path.join("sellers", req.file.filename) : "";
-    const sellerData = { shopName, email, password, phone, zip, avatar };
+    let avatarUrl = "";
+    if (req.file) {
+      try {
+        avatarUrl = await uploadToCloudinary(req.file.buffer, "sellers");
+      } catch (uploadError) {
+        console.error("Error uploading avatar:", uploadError);
+      }
+    }
+
+    const sellerData = { shopName, email, password, phone, zip, avatar: avatarUrl };
     const activationToken = createActivationToken(sellerData);
-    const activationUrl = `http://localhost:3000/seller-activation/${activationToken}`;
+    const activationUrl = `${process.env.CLIENT_URL || "https://multivendor-shop-1.vercel.app"}/seller-activation/${activationToken}`;
 
     try {
       await sendMail({

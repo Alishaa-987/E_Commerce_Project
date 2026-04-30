@@ -60,7 +60,11 @@ const App = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    const socket = io("http://localhost:8000", {
+    const socketUrl = process.env.NODE_ENV === "production" 
+      ? window.location.origin 
+      : "http://localhost:8000";
+    
+    const socket = io(socketUrl, {
       withCredentials: true,
       reconnection: true,
       reconnectionDelay: 1000,

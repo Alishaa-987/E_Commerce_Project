@@ -3,22 +3,15 @@ const path = require("path");
 const router = express.Router();
 const User = require("../model/user");
 const ErrorHandler = require("../utils/ErrorHandler");
-const { upload } = require("../multer");
+const { upload, uploadToCloudinary } = require("../multer");
 const sendMail = require("../utils/sendMail");
-const fs = require("fs");
 const sendToken = require("../utils/jwtToken");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const {isAuthenticated} = require("../middleware/auth");
+const { isAuthenticated } = require("../middleware/auth");
 const catchAsyncError = require("../middleware/catchAsyncError");
 
 const validAddressTypes = ["Default", "Home", "Office"];
-
-const cleanupUploadedFile = (file) => {
-    if (file?.filename) {
-        fs.unlink(path.join("uploads", file.filename), () => {});
-    }
-};
 
 const getVerifiedUser = async (userId, currentPassword) => {
     const password = String(currentPassword || "").trim();
@@ -98,24 +91,24 @@ router.post("/create-user", upload.single("file"), async (req, res, next) => {
         // Check if user already exists
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-            if (req.file) {
-                const filename = req.file.filename;
-                const filePath = `uploads/${filename}`;
-                fs.unlink(filePath, (err) => {
-                    if (err) console.error("Error deleting file:", err);
-                });
-            }
             return next(new ErrorHandler("User with this email already exists", 400));
         }
 
-        const avatar = req.file ? path.join(req.file.filename) : "";
+        let avatarUrl = "";
+        if (req.file) {
+            try {
+                avatarUrl = await uploadToCloudinary(req.file.buffer, "avatars");
+            } catch (uploadError) {
+                console.error("Error uploading avatar:", uploadError);
+            }
+        }
 
         // Prepare user data for token
-        const userData = { name, email, password, avatar };
+        const userData = { name, email, password, avatar: avatarUrl };
         
         // Create activation token (expires in 5 minutes)
         const activationToken = createActivationToken(userData);
-        const activationUrl = `http://localhost:3000/activation/${activationToken}`;
+        const activationUrl = `${process.env.CLIENT_URL || "https://schoolhubb.vercel.app"}/activation/${activationToken}`;
 
         try {
             console.log("📧 [EMAIL] Sending activation email to:", email);
@@ -282,8 +275,6 @@ router.put(
         const currentPassword = req.body.currentPassword;
 
         if (!name || !email) {
-            cleanupUploadedFile(req.file);
-
             return next(new ErrorHandler("Name and email are required.", 400));
         }
 
@@ -292,7 +283,6 @@ router.put(
         try {
             user = await getVerifiedUser(req.user._id, currentPassword);
         } catch (error) {
-            cleanupUploadedFile(req.file);
             return next(error);
         }
 
@@ -302,8 +292,6 @@ router.put(
         });
 
         if (existingUser) {
-            cleanupUploadedFile(req.file);
-
             return next(new ErrorHandler("Email is already in use.", 400));
         }
 
@@ -312,11 +300,12 @@ router.put(
         user.phoneNumber = phoneNumber;
 
         if (req.file) {
-            if (user.avatar) {
-                fs.unlink(path.join("uploads", path.basename(user.avatar)), () => {});
+            try {
+                const avatarUrl = await uploadToCloudinary(req.file.buffer, "avatars");
+                user.avatar = avatarUrl;
+            } catch (uploadError) {
+                console.error("Error uploading avatar:", uploadError);
             }
-
-            user.avatar = req.file.filename;
         }
 
         await user.save();

@@ -1,28 +1,27 @@
+const cloudinary = require("cloudinary").v2;
 const multer = require("multer");
-const fs = require("fs");
-const path = require("path");
 
-const ensureDir = (dirPath) => {
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
-  }
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const storage = multer.memoryStorage();
+
+const upload = multer({ storage });
+
+const uploadToCloudinary = async (buffer, folder = "uploads") => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { folder, resource_type: "image" },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result.secure_url);
+      }
+    );
+    uploadStream.end(buffer);
+  });
 };
 
-const makeStorage = (folder) =>
-  multer.diskStorage({
-    destination: function (req, file, cb) {
-      const target = path.join("uploads", folder);
-      ensureDir(target);
-      cb(null, target);
-    },
-    filename: function (req, file, cb) {
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      const base = file.originalname.split(".")[0];
-      cb(null, `${base}-${uniqueSuffix}.png`);
-    },
-  });
-
-const upload = multer({ storage: makeStorage("") }); // default root uploads
-const uploadSeller = multer({ storage: makeStorage("sellers") });
-
-module.exports = { upload, uploadSeller };
+module.exports = { upload, uploadToCloudinary };

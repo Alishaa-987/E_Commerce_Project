@@ -4,24 +4,48 @@ const ErrorHandler = require("./middleware/error");
 const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const fs = require("fs");
+const { connectionDatabase } = require("./db/Database");
 const path = require("path");
+
+let dbConnected = false;
+
+const connectDB = async () => {
+  if (!dbConnected) {
+    await connectionDatabase();
+    dbConnected = true;
+  }
+};
 
 app.use(express.json());
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use("/", express.static("uploads"));
+
+if (process.env.NODE_ENV !== "PRODUCTION") {
+  require("dotenv").config({
+    path: path.join(__dirname, "config/.env"),
+  });
+}
+
+connectDB().catch(console.error);
+
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "https://multivendor-shop-1.vercel.app",
+  "http://localhost:3000",
+].filter(Boolean);
+
 app.use(
-    cors({
-        origin: ["http://localhost:3000", "http://localhost:3001"],
-        credentials: true,
-    })
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
 );
-
-
-
-
-// import routes
 
 const user = require("./controller/user");
 const seller = require("./controller/seller");
@@ -44,5 +68,12 @@ app.use("/api/v2/conversation", conversation);
 app.use("/api/v2/message", message);
 
 app.use(ErrorHandler);
+
+if (process.env.NODE_ENV === "PRODUCTION") {
+  app.use(express.static(path.join(__dirname, "../frontend/build")));
+  app.get("*", (req, res) => {
+    res.sendFile(path.resolve(__dirname, "../frontend/build/index.html"));
+  });
+}
 
 module.exports = app;
