@@ -108,7 +108,7 @@ router.post("/create-user", upload.single("file"), async (req, res, next) => {
         
         // Create activation token (expires in 5 minutes)
         const activationToken = createActivationToken(userData);
-        const activationUrl = `${process.env.CLIENT_URL || "https://schoolhubb.vercel.app"}/activation/${activationToken}`;
+        const activationUrl = `${process.env.CLIENT_URL || "https://e-commerce-project-vs2l.vercel.app"}/activation/${activationToken}`;
 
         try {
             console.log("📧 [EMAIL] Sending activation email to:", email);

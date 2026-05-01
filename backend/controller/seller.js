@@ -130,7 +130,7 @@ router.post("/create-seller", upload.single("file"), async (req, res, next) => {
 
     const sellerData = { shopName, email, password, phone, zip, avatar: avatarUrl };
     const activationToken = createActivationToken(sellerData);
-    const activationUrl = `${process.env.CLIENT_URL || "https://multivendor-shop-1.vercel.app"}/seller-activation/${activationToken}`;
+    const activationUrl = `${process.env.CLIENT_URL || "https://e-commerce-project-vs2l.vercel.app"}/seller-activation/${activationToken}`;
 
     try {
       await sendMail({
