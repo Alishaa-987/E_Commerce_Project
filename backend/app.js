@@ -26,7 +26,8 @@ if (process.env.NODE_ENV !== "PRODUCTION") {
   });
 }
 
-connectDB().catch(console.error);
+
+
 
 const allowedOrigins = [
   process.env.CLIENT_URL,
