@@ -30,18 +30,25 @@ connectDB().catch(console.error);
 
 const allowedOrigins = [
   process.env.CLIENT_URL,
+  "https://e-commerce-project-vs2l.vercel.app",
   "https://multivendor-shop-1.vercel.app",
   "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:5173",
 ].filter(Boolean);
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
+      // Allow requests with no origin (Postman, server-to-server)
+      if (!origin) return callback(null, true);
+      // Allow any localhost port in development
+      if (/^http:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
+      // Allow any *.vercel.app subdomain (covers all deployments)
+      if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin)) return callback(null, true);
+      // Allow known production origins
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   })
