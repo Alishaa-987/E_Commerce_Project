@@ -41,6 +41,7 @@ import { getAllProducts } from "./redux/actions/product";
 import { getAllShops } from "./redux/actions/seller";
 import { getAllEvents } from "./redux/actions/event";
 import { useDispatch } from "react-redux";
+
 const App = () => {
   const dispatch = useDispatch();
 
@@ -60,11 +61,10 @@ const App = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    const socketUrl = process.env.NODE_ENV === "production" 
-      ? window.location.origin 
-      : "http://localhost:8000";
-    
-    const socket = io(socketUrl, {
+    // Vercel does NOT support WebSockets — only connect socket in local development
+    if (process.env.NODE_ENV === "production") return;
+
+    const socket = io("http://localhost:8000", {
       withCredentials: true,
       reconnection: true,
       reconnectionDelay: 1000,
@@ -133,10 +133,7 @@ const App = () => {
                 element={<SellerWorkspaceSectionPage sectionKey="withdrawMoney" />}
               />
               <Route path="inbox" element={<SellerInboxPage />} />
-              <Route
-                path="discount-codes"
-                element={<SellerDiscountCodesPage />}
-              />
+              <Route path="discount-codes" element={<SellerDiscountCodesPage />} />
               <Route
                 path="refunds"
                 element={<SellerWorkspaceSectionPage sectionKey="refunds" />}
@@ -180,22 +177,22 @@ const App = () => {
                 </ProtectedRoute>
               }
             />
-                <Route
-                  path="/profile"
-                  element={
-                    <ProtectedRoute>
-                      <ProfilePage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/profile/order/:orderId"
-                  element={
-                    <ProtectedRoute>
-                      <OrderDetailsPage />
-                    </ProtectedRoute>
-                  }
-                />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile/order/:orderId"
+              element={
+                <ProtectedRoute>
+                  <OrderDetailsPage />
+                </ProtectedRoute>
+              }
+            />
           </Routes>
         </CartProvider>
       </WishlistProvider>
