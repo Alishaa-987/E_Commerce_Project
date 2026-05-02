@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FiX, FiCheck, FiMail, FiPhone, FiLock, FiInfo, FiMapPin, FiBriefcase } from "react-icons/fi";
 import { useDispatch, useSelector } from "react-redux";
-import { updateSellerInfo, updateSellerPassword } from "../../../redux/actions/seller";
+import { updateSellerInfo, updateSellerPassword, updateShopBanner } from "../../../redux/actions/seller";
 
 const EditSellerModal = ({ isOpen, onClose, seller }) => {
   const dispatch = useDispatch();
@@ -15,7 +15,10 @@ const EditSellerModal = ({ isOpen, onClose, seller }) => {
     address: seller?.address || "",
     description: seller?.description || "",
     zip: seller?.zip || "",
+    banner: seller?.banner || "",
   });
+  const [bannerFile, setBannerFile] = useState(null);
+  const [bannerPreview, setBannerPreview] = useState(null);
 
   const [passwordData, setPasswordData] = useState({
     oldPassword: "",
@@ -35,16 +38,40 @@ const EditSellerModal = ({ isOpen, onClose, seller }) => {
         address: seller.address || "",
         description: seller.description || "",
         zip: seller.zip || "",
+        banner: seller.banner || "",
       });
+      setBannerPreview(null);
     }
   }, [seller]);
 
   if (!isOpen) return null;
 
+  const handleBannerChange = (e) => {
+    const file = e.target.files?.[0];
+    setBannerFile(file);
+    if (file) {
+      setBannerPreview(URL.createObjectURL(file));
+    } else {
+      setBannerPreview(null);
+    }
+  };
+
   const handleInfoUpdate = async (e) => {
     e.preventDefault();
     setMessage("");
     setError("");
+
+    if (bannerFile) {
+      const result = await dispatch(updateShopBanner(bannerFile));
+      if (result.success) {
+        setFormData((f) => ({ ...f, banner: result.banner }));
+        setMessage("Shop banner updated successfully!");
+        setBannerFile(null);
+        setBannerPreview(null);
+      } else {
+        setError(result.message);
+      }
+    }
 
     const result = await dispatch(updateSellerInfo(formData));
     if (result.success) {
@@ -198,17 +225,38 @@ const EditSellerModal = ({ isOpen, onClose, seller }) => {
                 />
               </div>
 
-              <div>
-                <label className={labelClass}>Shop Description</label>
-                <textarea
-                  className={`${inputClass} h-32 resize-none`}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Tell customers about your shop..."
-                />
-              </div>
+<div>
+                 <label className={labelClass}>Shop Description</label>
+                 <textarea
+                   className={`${inputClass} h-32 resize-none`}
+                   value={formData.description}
+                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                   placeholder="Tell customers about your shop..."
+                 />
+               </div>
 
-              <button
+               <div>
+                 <label className={labelClass}>Shop Banner</label>
+                 {(formData.banner || bannerPreview) && (
+                   <div className="mb-3 rounded-xl border border-white/10 bg-[#0b0b0d] p-3">
+                     <img
+                       src={bannerPreview || formData.banner}
+                       alt="banner preview"
+                       className="w-full h-32 rounded-lg object-cover border border-white/10"
+                     />
+                   </div>
+                 )}
+                 <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-purple-300/40 bg-purple-300/5 px-4 py-3 text-xs text-white/70 hover:border-purple-300/70 transition">
+                   <div>
+                     <p className="font-semibold text-white text-sm">Upload banner</p>
+                     <p className="text-[11px] text-white/40">Recommended: 1200x400px</p>
+                   </div>
+                   <div className="rounded-full bg-white/10 px-3 py-1 text-[11px] text-white">Browse</div>
+                   <input type="file" accept="image/*" onChange={handleBannerChange} className="hidden" />
+                 </label>
+               </div>
+
+               <button
                 type="submit"
                 disabled={currentSellerLoading}
                 className="w-full rounded-2xl bg-emerald-300 py-4 text-sm font-bold uppercase tracking-widest text-[#0b0b0d] transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 disabled:opacity-50"

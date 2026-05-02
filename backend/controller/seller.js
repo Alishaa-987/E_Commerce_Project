@@ -106,7 +106,7 @@ const attachProductCounts = async (sellers) => {
 };
 
 // Create seller and send activation email
-router.post("/create-seller", upload.single("file"), async (req, res, next) => {
+router.post("/create-seller", upload.fields([{ name: "file", maxCount: 1 }, { name: "banner", maxCount: 1 }]), async (req, res, next) => {
   try {
     const { shopName, email, password, phone, zip } = req.body;
 
@@ -120,15 +120,26 @@ router.post("/create-seller", upload.single("file"), async (req, res, next) => {
     }
 
     let avatarUrl = "";
-    if (req.file) {
-      try {
-        avatarUrl = await uploadToCloudinary(req.file.buffer, "sellers");
-      } catch (uploadError) {
-        console.error("Error uploading avatar:", uploadError);
+    let bannerUrl = "";
+
+    if (req.files) {
+      if (req.files.file) {
+        try {
+          avatarUrl = await uploadToCloudinary(req.files.file[0].buffer, "sellers");
+        } catch (uploadError) {
+          console.error("Error uploading avatar:", uploadError);
+        }
+      }
+      if (req.files.banner) {
+        try {
+          bannerUrl = await uploadToCloudinary(req.files.banner[0].buffer, "sellers/banners");
+        } catch (uploadError) {
+          console.error("Error uploading banner:", uploadError);
+        }
       }
     }
 
-    const sellerData = { shopName, email, password, phone, zip, avatar: avatarUrl };
+    const sellerData = { shopName, email, password, phone, zip, avatar: avatarUrl, banner: bannerUrl };
     const activationToken = createActivationToken(sellerData);
     const activationUrl = `${process.env.CLIENT_URL || "https://e-commerce-project-vs2l.vercel.app"}/seller-activation/${activationToken}`;
 
@@ -163,7 +174,7 @@ router.post("/activation-seller", catchAsyncError(async (req, res, next) => {
       return next(new ErrorHandler("Activation link has expired. Please sign up again.", 400));
     }
 
-    const { shopName, email, password, phone, zip, avatar } = newSeller;
+    const { shopName, email, password, phone, zip, avatar, banner } = newSeller;
     const existingSeller = await Seller.findOne({ email });
     if (existingSeller) {
       return next(new ErrorHandler("Seller already activated or registered", 400));
@@ -179,7 +190,7 @@ router.post("/activation-seller", catchAsyncError(async (req, res, next) => {
       zip,
       description: "",
       avatar,
-      banner: "",
+      banner: banner || "",
       followers: 0,
       rating: 0,
     });
@@ -259,8 +270,35 @@ router.get("/get-all-sellers", catchAsyncError(async (req, res) => {
   });
 }));
 
+router.put("/update-shop-banner", isSellerAuthenticated, upload.single("file"), catchAsyncError(async (req, res, next) => {
+  const seller = await Seller.findById(req.seller._id);
+
+  if (!seller) {
+    return next(new ErrorHandler("Seller not found", 404));
+  }
+
+  let bannerUrl = "";
+  if (req.file) {
+    try {
+      bannerUrl = await uploadToCloudinary(req.file.buffer, "sellers/banners");
+    } catch (uploadError) {
+      console.error("Error uploading banner:", uploadError);
+      return next(new ErrorHandler("Failed to upload banner", 500));
+    }
+  }
+
+  seller.banner = bannerUrl;
+  await seller.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Shop banner updated successfully",
+    banner: bannerUrl,
+  });
+}));
+
 router.put("/update-seller-info", isSellerAuthenticated, catchAsyncError(async (req, res, next) => {
-  const { shopName, email, phone, address, description, zip } = req.body;
+  const { shopName, email, phone, address, description, zip, banner } = req.body;
   const seller = await Seller.findById(req.seller._id);
 
   if (!seller) {
@@ -273,6 +311,7 @@ router.put("/update-seller-info", isSellerAuthenticated, catchAsyncError(async (
   if (address !== undefined) seller.address = address;
   if (description !== undefined) seller.description = description;
   if (zip) seller.zip = zip;
+  if (banner !== undefined) seller.banner = banner;
 
   await seller.save();
   await ensureSellerDefaults(seller);

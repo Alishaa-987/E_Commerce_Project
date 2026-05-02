@@ -162,3 +162,40 @@ export const updateSellerPassword = (passwordData) => async (dispatch) => {
     };
   }
 };
+
+export const updateShopBanner = (file) => async (dispatch) => {
+  try {
+    dispatch({
+      type: "updateShopBannerRequest",
+    });
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const { data } = await axios.put(`${server}/seller/update-shop-banner`, formData, {
+      withCredentials: true,
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    dispatch({
+      type: "updateShopBannerSuccess",
+      payload: data.banner,
+    });
+
+    return {
+      success: true,
+      banner: data.banner,
+    };
+  } catch (error) {
+    const message = error.response?.data?.message || "Failed to update banner.";
+    dispatch({
+      type: "updateShopBannerFail",
+      payload: message,
+    });
+
+    return {
+      success: false,
+      message,
+    };
+  }
+};
