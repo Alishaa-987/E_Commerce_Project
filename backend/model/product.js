@@ -26,7 +26,6 @@
      },
      discountPrice:{
          type: Number,
-         required: [true, "Please enter your discount price" ],
      },
      stock :{
          type: Number,
